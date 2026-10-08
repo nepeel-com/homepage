@@ -1,0 +1,3 @@
+# Implementation handoff
+
+Read DESIGN.md and design-contract.md. Build in the current project with React, TypeScript and Vite. Use CSS custom properties for the specified palette and spacing. Include a native-dialog sample capture experience, accessible FAQ disclosures, responsive navigation and a selectable moment gallery. Use real source photographs, store assets locally and document source URLs. Clearly mark gallery and capture as demos. Do not request camera permissions automatically or collect personal data. Prove the oversize headline/photo collage at desktop and a readable non-overlapping mobile view. Run the production build and browser checks. Prepare Vercel configuration and Korean README; never invent a remote repository or deployment URL.
