@@ -1,30 +1,43 @@
-# nepeel Design System
+# nepeel SNS design system
 
 ## 1. Visual Theme & Atmosphere
-An independent photography magazine meets a camera-only social club. Bold, candid, physical. Derived from the user's Korean product brief; no existing brand assets were supplied.
+
+A Korean photography community, with the quiet structure of an editorial reader and acid-lime camera accents. The active brief supersedes the old company landing page: web is now the social feed; the native app is the capture surface. Actual member content is private to authenticated members. Public previews must say they are samples.
 
 ## 2. Color
-Paper #F5F4EE; ink #171914; acid lime #D4FF3F; muted #66685F; line #D6D7CD. Use lime for primary actions and stamps, with ink text. Dark sections use paper text.
+
+Use the CSS variables in `src/styles.css` as the web source of truth: ink `#20221d`, paper `#fafbf8`, lime `#d4ff3f`, muted `#707369`, line `#e7e9e1`, wash `#f0f2eb`, radius 14px. Native StyleSheet values mirror these tokens. Noto Sans KR for Korean, Barlow Condensed for small English labels, Anton for manifesto headlines. Never condense Korean text.
 
 ## 3. Typography
-Anton for oversized English headlines; Noto Sans KR for Korean and interface copy; monospace for frame counters. Hero 80–156px responsive, Korean section headings 32–62px, body 16–18px. Never squeeze Korean into condensed fonts.
+
+Use 16px labelled form controls. Large HI typography is expressive; do not condense Korean. The Hi screen supports Korean/English labels; full-site localization is not yet complete.
 
 ## 4. Spacing & Grid
-4/8px base; 24px mobile gutters, 48–64px desktop gutters; content max-width 1440px. Section spacing 80–120px. Hero uses an asymmetric 55/45 composition.
+
+4/8px rhythm; 16/24/32px section gaps; touch controls at least 44px web and 48dp native.
 
 ## 5. Layout & Composition
-Compact header; editorial headline and overlapping real-photo prints; lime statement strip; dark manifesto; interactive camera walkthrough; sample moment gallery; FAQ; giant closing wordmark. Reading order remains linear on phones.
+
+Desktop: fixed 232px navigation, photo feed, 280px supporting rail. At ≤1050px the right rail disappears; at ≤760px navigation becomes a bottom bar. Primary photos keep a stable aspect ratio. Homepage introduction is shorter on mobile to bring the feed into view. Discover uses a two-column image grid. Profile and saved screens reuse the feed.
+
+Hi contains an introduction, private preferences, one send action, inbox and conversation. Mobile navigation has at most five items; saved photos remain accessible elsewhere. Do not invent conversations for empty states.
 
 ## 6. Components
-Pill actions with directional arrows, hairline rules, film-frame labels, offset photographic prints, circular authenticity-inspired brand stamp. Avoid generic card grids. The stamp expresses the concept, not a verified security certification.
+
+Native `<dialog>` for focus containment, Escape and focus restoration. Lime active navigation and follow buttons; charcoal primary actions; 44px reaction controls; initials for member avatars (no external profile-image uploads). Camera icon + ‘앱 촬영’ only on server-created member posts. Samples use neutral ‘미리보기’ and ‘SAMPLE MOMENT’. No fake likes or users claimed as real members.
+
+Incoming/outgoing Hi requests are distinct from accepted conversations. A request contains exactly one 'hi'; only acceptance unlocks free text. Show self-declared adult eligibility and city-level matching plainly.
 
 ## 7. Motion & Interaction
-200ms hover transitions; one-shot section reveals; no continuous marquee or scroll hijack. Respect reduced motion. Native dialog with Escape, focus containment and restoration. Walkthrough tabs and sample-camera controls are keyboard accessible.
+
+Search submits to discovery. Likes, comments, bookmarks, follow and profile changes use Supabase. Member-only actions open authentication when signed out. An empty backend shows an empty state, never fabricated activity. API errors are visible with retry paths. App camera has permission denied, authentication unavailable, capture, review, expiry and publishing states. Web never requests camera/gallery permission.
+
+Subscribe only while the inbox is open. Clean up on logout/background. Use cursor-based message history. Disable duplicate submissions and preserve drafts on errors. No matching roulette or false countdown.
 
 ## 8. Voice & Brand
-Korean-first, brief, human. English editorial hooks: LESS FAKE. MORE LIFE. Core product proposition: only photos taken within the app can be posted; no gallery or AI-image uploads. Describe the intended product policy without claiming this marketing site implements tamper-proof verification.
 
-Launch status: Coming soon / 앱 출시 준비 중, explicitly requested by the user. Header and hero actions link to the launch-status section. The existing demo is secondary and labeled 서비스 미리보기; no invented release date or registration flow.
+Use Non-AI as the community intent, not an absolute AI-detection guarantee. The about page explains device/app verification and recapture limits. Mark all preview photos and credit Unsplash. Keyboard focus is visible; icons have accessible names; reactions have pressed state; reduced motion disables transitions. Do not invent App Store download links or launch dates.
 
 ## 9. Anti-patterns
-No generated photography, fake user statistics, invented launch dates, testimonials, dead signup forms, generic purple gradients, app-store links for nonexistent releases, or claims of absolute AI detection. Unsplash photos are illustrative sample content and credited.
+
+No fake members, exact GPS/birthdate disclosure, unsolicited repeat DMs, age/identity verification claims based on self-declaration, unbounded queries, constant polling or paid upgrades without authorization.

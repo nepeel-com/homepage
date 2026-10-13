@@ -1,22 +1,28 @@
-# Design contract
+# Active design contract
 
-Target: responsive Korean company/product introduction website for nepeel, ready for GitHub and Vercel. Audience: people who want a more authentic photographic social space (inferred).
+The user's latest brief requests an actual web + native SNS, with Supabase and app-only photography. It supersedes the previous coming-soon landing-page contract.
 
-| Evidence | Confidence | Decision |
-|---|---|---|
-| Company name nepeel | provided | Lowercase custom wordmark |
-| App camera photos only; block external and AI images | provided | Camera-first story and three clear rules |
-| Request for a radical visual form | provided | Oversized condensed type, lime, rotated photo prints |
-| GitHub and Vercel deployment | provided | Local Vite project with build configuration |
-| UI/UX Pro Max brutalist editorial result | observed | Strong contrast and asymmetric composition; override luxury serif pairing to suit youthful photography |
-| Brand colors, copy and photography | inferred | Original art direction, clearly labeled stock sample images |
+- Preserve nepeel's black, paper and lime identity.
+- Build a readable, responsive photo feed with account and social actions.
+- Share auth and data with an Expo iOS/Android camera app.
+- Deny direct client photo upload; use a server proof-verification boundary.
+- Public stock photos are labelled examples, separate from authenticated member content.
+- The native app remains labelled as preparing for launch until a real distribution link exists.
+- No generated photography, invented member metrics, unsupported ‘100% AI-free’ guarantees, or pretend form submissions.
+- Use `DESIGN.md` for tokens/components and `README.md` for actual connection/deployment status.
 
-| Keep | Change | Do not copy |
-|---|---|---|
-| Familiar photo-social meaning in the Instagram analogy | Build nepeel's own visual identity and capture-first narrative | Instagram logos, exact layouts, statistics or proprietary assets |
+## Hi / global expansion contract
 
-The final direction is an energetic photography manifesto: warm paper, near-black ink, acid lime and real photographic prints. Large typography gives the brand a clear position while an interactive sample capture explains the product without pretending to be a production SNS.
+Target: web + Expo SNS with opt-in introductions and text DM. Evidence: existing palette/source (observed); free global growth, nearby/age/gender preferences and random Hi (provided); 18+ self-declaration, mutual acceptance, city-only location and five requests/day (inferred defaults).
 
-Unknowns: launch date, contacts, app store URLs, domain and repository. No fabricated values. Native capture attestation and production social backend are outside this company website.
+| Reference | Keep | Change | Do not copy |
+| --- | --- | --- | --- |
+| Instagram-like brief | Photos and familiar reactions | App-only capture and consent-based Hi | Logos, exact screens, fake engagement |
+| Existing nepeel | Paper/ink/lime | Invitation/inbox views | Unsupported verification claims |
+| Random introduction | One action opens a possibility | Mutual preferences and acceptance before text | Precise location or messaging nonparticipants |
 
-Quality gate: responsive at 375/768/1440px; no horizontal overflow; real image sources; usable keyboard controls and dialog; visible demo labels; no false registration success; reduced motion; successful production build; deployment instructions.
+Direction: an editorial photo feed with a bold typographic lime Hi panel, private preferences and honest empty states. No new stock/generated portraits are needed.
+
+Unknowns: age/identity assurance beyond self-declaration, SMTP, native platform accounts, audience regions and moderation staffing. Vercel Hobby is noncommercial only; do not promise free commercial hosting there.
+
+Quality gate: RLS isolates preferences/messages; mutual adult filters and quotas run on the server; block stops delivery; no candidates means no message; web/native share the contract; mobile navigation ≤5 items; loading/error/empty states are testable.
