@@ -1,1012 +1,1283 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import type { Session } from "@supabase/supabase-js";
 import {
+  Aperture,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  Bookmark,
   Camera,
   Check,
-  CheckCheck,
-  ChevronDown,
+  ChevronRight,
+  Compass,
+  Flag,
   Heart,
-  ImageOff,
-  Menu,
+  Home,
+  Info,
+  LoaderCircle,
+  LogOut,
+  MessageCircle,
   Plus,
-  ScanLine,
+  RefreshCw,
+  Search,
+  Send,
   ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Trash2,
+  UserRound,
   X,
 } from "lucide-react";
+import { supabase } from "./lib/supabase";
+import { sampleMeta, samplePosts } from "./lib/samples";
+import { getFeed, getProfile, setFollowing, setReaction } from "../shared/data";
+import type { FeedMode, Post, Profile } from "../shared/types";
+import DeleteAccount from "./components/DeleteAccount";
+import {
+  About,
+  AuthDialog,
+  CameraDialog,
+  EditProfile,
+  PostDialog,
+  Recovery,
+  ReportDialog,
+} from "./components/dialogs";
 
-const photos = [
-  {
-    src: "/images/street-style.webp",
-    alt: "어두운 배경 앞에서 머리카락을 넘기는 사람의 인물 사진",
-    title: "오늘의 나, 이대로.",
-    category: "일상",
-    place: "A LITTLE EVERYDAY",
-    frame: "001",
-    source: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1",
-  },
-  {
-    src: "/images/ocean.webp",
-    alt: "노을빛 하늘 아래 잔잔한 파도가 밀려오는 모래사장",
-    title: "잠깐, 여름에 다녀왔어.",
-    category: "여행",
-    place: "SOMEWHERE SUNNY",
-    frame: "002",
-    source: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
-  },
-  {
-    src: "/images/concert.webp",
-    alt: "빛이 가득한 공연장에서 함께 음악을 즐기는 사람들",
-    title: "이 밤의 볼륨은 최대로.",
-    category: "함께",
-    place: "AFTER DARK",
-    frame: "003",
-    source: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3",
-  },
-  {
-    src: "/images/roadtrip.webp",
-    alt: "붉은 암석 사이로 길게 이어진 사막의 도로",
-    title: "계획에 없던 풍경.",
-    category: "여행",
-    place: "OFF THE MAP",
-    frame: "004",
-    source: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee",
-  },
-];
-
-const steps = [
-  {
-    title: "카메라를 열고.",
-    body: "갤러리에서 고르는 대신, 지금 눈앞에 있는 순간을 담아요.",
-    label: "OPEN YOUR CAMERA",
-    icon: Camera,
-  },
-  {
-    title: "지금의 순간을 찍고.",
-    body: "조금 흔들려도 괜찮아요. 완벽한 이미지보다 내가 보낸 시간이니까.",
-    label: "CAPTURE THE MOMENT",
-    icon: ScanLine,
-  },
-  {
-    title: "진짜 우리와 연결돼요.",
-    body: "앱에서 직접 찍은 사진만 모이는 피드. 서로의 오늘을 만나보세요.",
-    label: "SHARE YOUR REAL LIFE",
-    icon: Heart,
-  },
-];
-
-const faqs = [
-  {
-    q: "nepeel은 어떤 SNS인가요?",
-    a: "nepeel은 앱 안의 카메라로 직접 찍은 사진만 공유하는 SNS를 만들고 있습니다. 누구나 그럴듯한 이미지를 만들 수 있는 시대에, 우리가 직접 보고 경험한 순간으로 연결되는 공간을 지향합니다.",
-  },
-  {
-    q: "갤러리에 있는 사진은 올릴 수 없나요?",
-    a: "네. nepeel의 핵심 원칙은 앱 내 촬영입니다. 외부 파일이나 갤러리 사진을 가져오는 업로드 경로를 제공하지 않는 방식으로, 직접 찍은 순간이 피드의 출발점이 되도록 합니다.",
-  },
-  {
-    q: "AI 이미지는 어떻게 막나요?",
-    a: "AI 이미지를 판별해서 걸러내기보다, 외부 이미지가 들어오는 경로를 제한하는 것이 출발점입니다. 앱 내 촬영과 촬영 출처 확인을 중심으로 설계합니다. 다만 화면 재촬영 등 모든 우회 방식의 완벽한 차단을 보장하는 것은 아니며, 이 웹사이트의 체험은 서비스 흐름을 보여주는 샘플입니다.",
-  },
-  {
-    q: "지금 앱을 사용할 수 있나요?",
-    a: "nepeel 앱은 현재 출시 준비 중입니다. 아직 다운로드하거나 가입할 수 없으며, 출시 일정은 확정되는 대로 이 사이트에서 안내할 예정입니다. 지금은 서비스 소개와 샘플 미리보기를 만나보실 수 있습니다.",
-  },
-];
-
-function Brand({ large = false }: { large?: boolean }) {
+const Connections = lazy(() => import("./components/Connections"));
+type View = "feed" | "discover" | "saved" | "profile" | "about" | "hi";
+type Modal = "auth" | "camera" | "edit" | "recovery" | "deleteAccount" | null;
+const navigation = [
+  { id: "feed", label: "홈 피드", icon: Home },
+  { id: "discover", label: "발견하기", icon: Compass },
+  { id: "hi", label: "Hi 연결", icon: Send },
+  { id: "saved", label: "저장한 순간", icon: Bookmark },
+  { id: "profile", label: "내 프로필", icon: UserRound },
+] as const;
+const readView = (): View =>
+  ["feed", "discover", "saved", "profile", "about", "hi"].includes(
+    location.hash.slice(1),
+  )
+    ? (location.hash.slice(1) as View)
+    : "feed";
+export function readableError(error: unknown) {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String(error.message)
+      : "";
+  if (/Invalid login/i.test(message))
+    return "이메일 또는 비밀번호를 확인해 주세요.";
+  if (/Email not confirmed/i.test(message))
+    return "가입 이메일의 인증 링크를 먼저 눌러 주세요.";
+  if (/rate limit|too many/i.test(message))
+    return "요청이 많습니다. 잠시 후 다시 시도해 주세요.";
+  if (/already registered/i.test(message))
+    return "이미 가입한 이메일입니다. 로그인해 주세요.";
+  if (/password/i.test(message))
+    return "비밀번호는 8자 이상으로 입력해 주세요.";
+  return "연결을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+}
+function timeLabel(post: Post) {
+  if (post.sample) return "샘플 사진";
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - Date.parse(post.created_at)) / 60000),
+  );
+  return minutes < 1
+    ? "방금 전"
+    : minutes < 60
+      ? `${minutes}분 전`
+      : minutes < 1440
+        ? `${Math.floor(minutes / 60)}시간 전`
+        : new Date(post.created_at).toLocaleDateString("ko-KR");
+}
+export function Avatar({
+  name,
+  size = "",
+  index = 0,
+}: {
+  name: string;
+  size?: string;
+  index?: number;
+}) {
   return (
-    <span className={`brand ${large ? "brand-large" : ""}`}>
-      nepeel
-      <span className="brand-dot" />
+    <span aria-hidden="true" className={`avatar ${size} tone-${index % 4}`}>
+      {name.slice(0, 1)}
     </span>
   );
 }
-
-function Stamp() {
+function Brand() {
   return (
-    <div className="real-stamp" aria-label="No AI. Just real life.">
-      <svg viewBox="0 0 140 140" aria-hidden="true">
-        <defs>
-          <path
-            id="stamp-circle"
-            d="M70,70m-51,0a51,51 0 1,1 102,0a51,51 0 1,1 -102,0"
-          />
-        </defs>
-        <text>
-          <textPath href="#stamp-circle" textLength="316">
-            NO AI. JUST REAL LIFE. • NO AI. JUST REAL LIFE. •{" "}
-          </textPath>
-        </text>
-      </svg>
-      <span className="stamp-star">✳</span>
-    </div>
+    <span className="brand">
+      nepeel
+      <Aperture aria-hidden="true" />
+    </span>
   );
 }
-
-function Experience({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const nextAction = useRef<HTMLButtonElement>(null);
-  const [stage, setStage] = useState<"camera" | "review" | "shared">("camera");
-  const [scene, setScene] = useState(1);
-  const [flash, setFlash] = useState(false);
-  const [liked, setLiked] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
+export function Dialog({
+  title,
+  children,
+  close,
+  wide = false,
+}: {
+  title: string;
+  children: ReactNode;
+  close: () => void;
+  wide?: boolean;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    if (open) {
-      setStage("camera");
-      setLiked(false);
-      setFlash(false);
-      dialog.current?.showModal();
-      const before = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = before;
-        clearTimeout(timer.current);
-      };
-    }
-    dialog.current?.close();
-  }, [open]);
-
-  useEffect(() => {
-    if (open && stage !== "camera") nextAction.current?.focus();
-  }, [stage, open]);
-
-  function capture() {
-    setFlash(true);
-    timer.current = setTimeout(() => {
-      setFlash(false);
-      setStage("review");
-    }, 240);
-  }
-
+    const el = ref.current!;
+    el.showModal();
+    return () => el.close();
+  }, []);
   return (
     <dialog
-      ref={dialog}
-      className="experience-dialog"
-      aria-labelledby="experience-title"
-      onCancel={onClose}
+      ref={ref}
+      className={`dialog ${wide ? "wide" : ""}`}
+      aria-label={title}
+      onCancel={close}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) close();
       }}
     >
-      <div className="experience-content">
-        <div className="dialog-header">
-          <span className="eyebrow">A LITTLE PREVIEW</span>
-          <button
-            className="icon-button"
-            onClick={onClose}
-            aria-label="체험 닫기"
-          >
-            <X aria-hidden="true" />
+      <div className="dialog-inner">
+        <div className="dialog-heading">
+          <h2>{title}</h2>
+          <button className="icon-button" aria-label="닫기" onClick={close}>
+            <X />
           </button>
         </div>
-        <h2 id="experience-title">
-          {stage === "camera"
-            ? "지금, 이 순간."
-            : stage === "review"
-              ? "완벽하지 않아도, 좋아."
-              : "우리의 순간이 되었어요."}
-        </h2>
-        <p className="dialog-description">
-          앱 출시 준비 중 · 샘플 사진으로 보는 촬영·공유 흐름
-        </p>
-        <div className={`demo-photo ${flash ? "flash" : ""}`}>
-          <img src={photos[scene].src} alt={photos[scene].alt} />
-          {stage === "camera" && (
-            <>
-              <div className="viewfinder" />
-              <span className="camera-indicator">
-                <span /> SAMPLE CAMERA
-              </span>
-              <span className="camera-zoom">1×</span>
-            </>
-          )}
-          {stage === "review" && (
-            <span className="photo-status">
-              <Check aria-hidden="true" size={15} /> 샘플 촬영 완료
-            </span>
-          )}
-          {stage === "shared" && (
-            <div className="shared-caption">
-              <span>{photos[scene].title}</span>
-              <button
-                aria-label={liked ? "좋아요 취소" : "좋아요"}
-                aria-pressed={liked}
-                onClick={() => setLiked(!liked)}
-                className={liked ? "liked" : ""}
-              >
-                <Heart
-                  aria-hidden="true"
-                  fill={liked ? "currentColor" : "none"}
-                />
-              </button>
-            </div>
-          )}
-        </div>
-        <div className="demo-controls">
-          {stage === "camera" ? (
-            <>
-              <button
-                className="text-button"
-                onClick={() => setScene((scene + 1) % photos.length)}
-                disabled={flash}
-              >
-                다른 장면 <ArrowRight aria-hidden="true" size={16} />
-              </button>
-              <button
-                className="shutter"
-                aria-label="샘플 사진 촬영"
-                onClick={capture}
-                disabled={flash}
-              >
-                <span />
-              </button>
-              <span className="mono">
-                {String(scene + 1).padStart(2, "0")} / 04
-              </span>
-            </>
-          ) : stage === "review" ? (
-            <>
-              <button
-                className="text-button"
-                onClick={() => setStage("camera")}
-              >
-                <ArrowLeft aria-hidden="true" size={16} /> 다시 찍기
-              </button>
-              <button
-                className="button button-lime"
-                ref={nextAction}
-                onClick={() => setStage("shared")}
-              >
-                체험 피드에 공유 <ArrowUpRight aria-hidden="true" size={17} />
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="demo-success" role="status">
-                <CheckCheck aria-hidden="true" size={18} /> 체험 피드에 담았어요
-              </span>
-              <button
-                className="text-button"
-                ref={nextAction}
-                onClick={() => setStage("camera")}
-              >
-                다시 체험 <ArrowRight aria-hidden="true" size={16} />
-              </button>
-            </>
-          )}
-        </div>
-        <p className="demo-note">
-          이 체험은 샘플 화면입니다. 실제 촬영·업로드는 이루어지지 않으며 사진은
-          저장되지 않습니다.
-        </p>
+        {children}
       </div>
     </dialog>
   );
 }
 
 export default function App() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [experienceOpen, setExperienceOpen] = useState(false);
-  const [step, setStep] = useState(0);
-  const [filter, setFilter] = useState("전체");
-  const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
-  const photoDialog = useRef<HTMLDialogElement>(null);
-  const [creditsOpen, setCreditsOpen] = useState(false);
-
+  const [view, setView] = useState<View>(readView);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(!supabase);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [mode, setMode] = useState<"all" | "following">("all");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [loadMore, setLoadMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState("");
+  const [refresh, setRefresh] = useState(0);
+  const [modal, setModal] = useState<Modal>(null);
+  const [detail, setDetail] = useState<Post | null>(null);
+  const [report, setReport] = useState<Post | null>(null);
+  const [deleting, setDeleting] = useState<Post | null>(null);
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState<string[]>([]);
+  const busyRef = useRef(new Set<string>());
+  const [postLink, setPostLink] = useState(() =>
+    location.hash.startsWith("#post/") ? location.hash.slice(6) : "",
+  );
+  const preview = !session;
+  const userId = session?.user.id;
+  const notify = (text: string) => setNotice(text);
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12 },
-    );
-    document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (selectedPhoto !== null) {
-      photoDialog.current?.showModal();
-      const before = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = before;
-      };
+    if (notice) {
+      const timer = setTimeout(() => setNotice(""), 5000);
+      return () => clearTimeout(timer);
     }
-    photoDialog.current?.close();
-  }, [selectedPhoto]);
-
-  const openExperience = () => {
-    setMenuOpen(false);
-    setExperienceOpen(true);
+  }, [notice]);
+  useEffect(() => {
+    const onHash = () => {
+      setView(readView());
+      setPostLink(
+        location.hash.startsWith("#post/") ? location.hash.slice(6) : "",
+      );
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    supabase.auth.getSession().then(({ data, error: authError }) => {
+      if (active) {
+        setSession(data.session);
+        setAuthReady(true);
+        if (authError) setNotice("로그인 상태를 확인할 수 없습니다.");
+      }
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, next) => {
+      setSession(next);
+      setAuthReady(true);
+      if (event === "PASSWORD_RECOVERY") setModal("recovery");
+      if (event === "SIGNED_OUT") {
+        setPosts([]);
+        setProfile(null);
+        setDetail(null);
+        setReport(null);
+        setDeleting(null);
+      }
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+  useEffect(() => {
+    if (!supabase || !userId) {
+      setProfile(null);
+      return;
+    }
+    let active = true;
+    getProfile(supabase, userId)
+      .then((data) => {
+        if (active) setProfile(data);
+      })
+      .catch(() => {
+        if (active)
+          setNotice("프로필을 불러오지 못했습니다. 연결 설정을 확인해 주세요.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [userId, refresh]);
+  const feedMode: FeedMode =
+    view === "saved"
+      ? "saved"
+      : view === "profile"
+        ? "profile"
+        : view === "discover"
+          ? "all"
+          : mode;
+  useEffect(() => {
+    if (!authReady) return;
+    if (view === "hi" || view === "about") return;
+    if (!supabase || !userId) {
+      setPosts(
+        view === "saved" ||
+          view === "profile" ||
+          (mode === "following" && view === "feed")
+          ? []
+          : samplePosts.filter((p) =>
+              `${p.caption}${p.display_name}`.includes(search),
+            ),
+      );
+      setHasMore(false);
+      setError("");
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    setError("");
+    setPosts([]);
+    getFeed(supabase, feedMode, search, 0, postLink)
+      .then((data) => {
+        if (active) {
+          setPosts(data);
+          setHasMore(data.length === 20);
+        }
+      })
+      .catch(() => {
+        if (active)
+          setError(
+            "피드를 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요.",
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authReady, userId, view, feedMode, search, refresh, postLink, mode]);
+  const go = (next: View) => {
+    setSearch("");
+    setSearchDraft("");
+    setDetail(null);
+    location.hash = next;
+    setView(next);
+    window.scrollTo({ top: 0, behavior: "instant" });
   };
-
+  const requireMember = (post?: Post) => {
+    if (!session || post?.sample) {
+      setModal("auth");
+      return false;
+    }
+    return true;
+  };
+  async function run(key: string, action: () => Promise<void>) {
+    if (busyRef.current.has(key)) return;
+    busyRef.current.add(key);
+    setBusy([...busyRef.current]);
+    try {
+      await action();
+    } catch (e) {
+      notify(readableError(e));
+    } finally {
+      busyRef.current.delete(key);
+      setBusy([...busyRef.current]);
+    }
+  }
+  const patchPost = (id: string, patch: Partial<Post>) => {
+    setPosts((old) => old.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    setDetail((old) => (old?.id === id ? { ...old, ...patch } : old));
+  };
+  async function react(post: Post, kind: "likes" | "bookmarks") {
+    if (!requireMember(post) || !supabase || !userId) return;
+    const enabled = !(kind === "likes" ? post.liked : post.saved);
+    await run(`${kind}-${post.id}`, async () => {
+      await setReaction(supabase!, kind, userId, post.id, enabled);
+      patchPost(
+        post.id,
+        kind === "likes"
+          ? {
+              liked: enabled,
+              like_count: Math.max(
+                0,
+                Number(post.like_count) + (enabled ? 1 : -1),
+              ),
+            }
+          : { saved: enabled },
+      );
+      if (view === "saved" && !enabled && kind === "bookmarks")
+        setPosts((old) => old.filter((p) => p.id !== post.id));
+    });
+  }
+  async function follow(post: Post) {
+    if (!requireMember(post) || !supabase || !userId) return;
+    await run(`follow-${post.user_id}`, async () => {
+      await setFollowing(supabase!, userId, post.user_id, !post.following);
+      setPosts((old) =>
+        old.map((p) =>
+          p.user_id === post.user_id ? { ...p, following: !post.following } : p,
+        ),
+      );
+    });
+  }
+  async function share(post: Post) {
+    if (post.sample)
+      return notify("샘플 사진입니다. 실제 게시물은 링크로 공유할 수 있어요.");
+    const url = `${location.origin}/#post/${post.id}`;
+    try {
+      if (navigator.share)
+        await navigator.share({ title: "nepeel · 있는 그대로의 순간", url });
+      else {
+        await navigator.clipboard.writeText(url);
+        notify("링크를 복사했어요. 로그인한 멤버에게만 사진이 보여요.");
+      }
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === "AbortError"))
+        notify("링크를 공유하지 못했어요. 다시 시도해 주세요.");
+    }
+  }
+  async function nextPage() {
+    if (!supabase || loadMore) return;
+    setLoadMore(true);
+    try {
+      const data = await getFeed(
+        supabase,
+        feedMode,
+        search,
+        posts.length,
+        postLink,
+      );
+      setPosts((old) => [
+        ...old,
+        ...data.filter((p) => !old.some((o) => o.id === p.id)),
+      ]);
+      setHasMore(data.length === 20);
+    } catch {
+      notify("다음 사진을 불러오지 못했어요.");
+    } finally {
+      setLoadMore(false);
+    }
+  }
+  function searchSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSearch(searchDraft.trim());
+    location.hash = "discover";
+    setView("discover");
+  }
+  const reset = () => {
+    setSearch("");
+    setSearchDraft("");
+    setMode("all");
+    location.hash = "feed";
+    setRefresh((v) => v + 1);
+  };
+  const actions = (post: Post) => (
+    <div className="post-actions">
+      <button
+        className={`icon-button ${post.liked ? "liked" : ""}`}
+        aria-label={post.liked ? "좋아요 취소" : "좋아요"}
+        aria-pressed={post.liked}
+        disabled={busy.includes(`likes-${post.id}`)}
+        onClick={() => void react(post, "likes")}
+      >
+        <Heart fill={post.liked ? "currentColor" : "none"} />
+      </button>
+      <button
+        className="icon-button"
+        aria-label="댓글 보기"
+        onClick={() => setDetail(post)}
+      >
+        <MessageCircle />
+      </button>
+      <button
+        className="icon-button"
+        aria-label="게시물 공유"
+        onClick={() => void share(post)}
+      >
+        <Send />
+      </button>
+      <span className="action-spacer" />
+      <span className={`capture-label ${post.sample ? "sample" : ""}`}>
+        {post.sample ? <Info size={13} /> : <ShieldCheck size={13} />}
+        {post.sample ? "미리보기" : "앱 촬영"}
+      </span>
+      <button
+        className={`icon-button ${post.saved ? "saved" : ""}`}
+        aria-label={post.saved ? "저장 취소" : "사진 저장"}
+        aria-pressed={post.saved}
+        disabled={busy.includes(`bookmarks-${post.id}`)}
+        onClick={() => void react(post, "bookmarks")}
+      >
+        <Bookmark fill={post.saved ? "currentColor" : "none"} />
+      </button>
+    </div>
+  );
   return (
     <>
       <a className="skip-link" href="#main">
-        본문으로 바로가기
+        본문으로 건너뛰기
       </a>
-      <header className="site-header">
-        <div className="header-inner">
-          <a className="home-link" href="#" aria-label="nepeel 홈">
-            <Brand />
-          </a>
-          <nav className="desktop-nav" aria-label="메인 메뉴">
-            <a href="#about">우리가 믿는 것</a>
-            <a href="#how-it-works">nepeel의 방식</a>
-            <a href="#moments">
-              진짜의 순간들 <span>↗</span>
+      <aside className="sidebar">
+        <a
+          className="brand-link"
+          href="#feed"
+          onClick={() => go("feed")}
+          aria-label="nepeel 홈"
+        >
+          <Brand />
+        </a>
+        <div className="brand-caption">LESS FAKE. MORE LIFE.</div>
+        <nav aria-label="메인 메뉴">
+          {navigation.map((item) => (
+            <a
+              href={`#${item.id}`}
+              onClick={(e) => {
+                e.preventDefault();
+                go(item.id);
+              }}
+              key={item.id}
+              className={`nav-item ${view === item.id ? "active" : ""}`}
+              aria-current={view === item.id ? "page" : undefined}
+            >
+              <item.icon strokeWidth={view === item.id ? 2.5 : 1.7} />
+              <span>{item.label}</span>
+              {view === item.id && <span className="nav-dot" />}
             </a>
-          </nav>
-          <a
-            className="button button-dark header-cta"
-            href="#launch"
-          >
-            앱 출시 준비 중 <ArrowDown aria-hidden="true" size={17} />
-          </a>
-          <button
-            className="menu-toggle icon-button"
-            aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
-            aria-expanded={menuOpen}
-            aria-controls="mobile-nav"
-            onClick={() => setMenuOpen(!menuOpen)}
-          >
-            {menuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+          ))}
+        </nav>
+        <button className="capture-button" onClick={() => setModal("camera")}>
+          <Plus size={21} />
+          <span>순간 기록하기</span>
+          <ArrowUpRight size={17} />
+        </button>
+        <div className="sidebar-manifesto">
+          <span className="tiny-label">A LITTLE MORE REAL.</span>
+          <p>
+            만들어낸 장면 대신,
+            <br />
+            살아가는 순간들.
+          </p>
+          <button onClick={() => go("about")}>
+            nepeel의 약속 <ArrowUpRight size={15} />
           </button>
         </div>
-        {menuOpen && (
-          <nav id="mobile-nav" className="mobile-nav" aria-label="모바일 메뉴">
-            <a href="#about" onClick={() => setMenuOpen(false)}>
-              우리가 믿는 것
-            </a>
-            <a href="#how-it-works" onClick={() => setMenuOpen(false)}>
-              nepeel의 방식
-            </a>
-            <a href="#moments" onClick={() => setMenuOpen(false)}>
-              진짜의 순간들
-            </a>
-            <a
-              className="button button-dark"
-              href="#launch"
-              onClick={() => setMenuOpen(false)}
-            >
-              앱 출시 준비 중 <ArrowDown aria-hidden="true" size={18} />
-            </a>
-          </nav>
-        )}
-      </header>
-
-      <main id="main">
-        <section className="hero shell" aria-labelledby="hero-title">
-          <div className="hero-topline">
-            <span className="eyebrow">
-              <span className="live-dot" /> COMING SOON / 앱 출시 준비 중
-            </span>
-            <span className="mono hero-edition">
-              THE CAMERA-ONLY SOCIAL CLUB
-            </span>
-          </div>
-          <div className="hero-main">
-            <div className="hero-copy">
-              <h1 id="hero-title">
-                LESS FAKE.
-                <br />
-                <span className="more-line">
-                  MORE{" "}
-                  <span className="life-word">
-                    LIFE
-                    <svg
-                      viewBox="0 0 280 30"
-                      preserveAspectRatio="none"
-                      aria-hidden="true"
-                    >
-                      <path d="M5 17C62 2 206 0 274 9M18 27C103 10 207 12 258 14" />
-                    </svg>
-                  </span>
-                  <span className="lime-period">.</span>
-                </span>
-              </h1>
-              <div className="hero-message">
-                <h2>
-                  만들어진 세상 말고,
-                  <br />
-                  네가 사는 세상.
-                </h2>
-                <p>
-                  AI 이미지도, 갤러리 업로드도 없이.
-                  <br />
-                  오직 직접 찍은 순간으로 연결되는 우리.
-                </p>
-              </div>
-              <div className="hero-actions">
-                <a
-                  className="button button-lime hero-cta"
-                  href="#launch"
-                >
-                  앱 출시 준비 중{" "}
-                  <span className="button-circle">
-                    <ArrowDown aria-hidden="true" size={19} />
-                  </span>
-                </a>
-                <a className="explore-link" href="#about">
-                  조금 더 알아보기 <ArrowDown aria-hidden="true" size={16} />
-                </a>
-              </div>
-            </div>
-            <div
-              className="hero-collage"
-              aria-label="일상, 여행, 공연의 순간을 담은 샘플 사진 콜라주"
-            >
-              <span className="collage-cross cross-one">+</span>
-              <span className="collage-cross cross-two">+</span>
-              <figure className="photo-print print-concert">
-                <img
-                  src={photos[2].src}
-                  alt={photos[2].alt}
-                  fetchPriority="high"
-                />
-                <figcaption>
-                  <span>LOUD NIGHTS, REAL MEMORIES.</span>
-                  <span>03 / 04</span>
-                </figcaption>
-              </figure>
-              <figure className="photo-print print-main">
-                <span className="tape" />
-                <img
-                  src={photos[0].src}
-                  alt={photos[0].alt}
-                  fetchPriority="high"
-                />
-                <figcaption>
-                  <span>
-                    <span className="tiny-dot" /> A MOMENT. NOT A PROMPT.
-                  </span>
-                  <span>↗</span>
-                </figcaption>
-              </figure>
-              <figure className="photo-print print-ocean">
-                <img
-                  src={photos[1].src}
-                  alt={photos[1].alt}
-                  fetchPriority="high"
-                />
-                <figcaption>
-                  <span>WISH YOU WERE HERE.</span>
-                  <Heart aria-hidden="true" size={13} />
-                </figcaption>
-              </figure>
-              <Stamp />
-              <div className="handwritten-note">
-                a little messy.
-                <br />a lot more human.
-                <svg viewBox="0 0 85 46" aria-hidden="true">
-                  <path d="M5 4c9 31 38 39 66 24m-14-4 15 3-8 13" />
-                </svg>
-              </div>
-              <span className="collage-source mono">
-                LIFE IN FRAMES / SAMPLE PHOTOGRAPHY
+        <div className="sidebar-bottom">
+          {session ? (
+            <button className="account-button" onClick={() => go("profile")}>
+              <Avatar name={profile?.display_name ?? "나"} />
+              <span>
+                <b>{profile?.display_name ?? "내 계정"}</b>
+                <small>나의 기록</small>
               </span>
-            </div>
-          </div>
-          <div className="hero-bottom">
-            <span>
-              <Camera aria-hidden="true" size={15} /> 카메라에서 시작되는 새로운
-              소셜
-            </span>
-            <span className="mono">
-              GO OUT. FEEL SOMETHING. <ArrowDown aria-hidden="true" size={15} />
-            </span>
-          </div>
-        </section>
-
-        <div
-          className="manifesto-strip"
-          aria-label="No AI. No uploads. Just real life."
-        >
-          <div>
-            <span>NO AI.</span>
-            <span className="strip-star">✳</span>
-            <span>NO UPLOADS.</span>
-            <span className="strip-star">✳</span>
-            <span>JUST REAL LIFE.</span>
-            <span className="strip-star">✳</span>
-            <span aria-hidden="true">NO AI.</span>
-            <span className="strip-star" aria-hidden="true">
-              ✳
-            </span>
-            <span aria-hidden="true">NO UPLOADS.</span>
-          </div>
-        </div>
-
-        <section id="about" className="manifesto-section">
-          <div className="shell">
-            <div className="section-topline">
-              <span className="eyebrow">01 / THE MANIFESTO</span>
-              <span className="mono">A SOCIAL RESET.</span>
-            </div>
-            <div className="manifesto-heading reveal">
-              <h2>
-                좋은 순간에
-                <br />
-                <span>프롬프트는</span>
-                <br />
-                필요 없으니까<span className="lime-period">.</span>
-              </h2>
-              <div className="manifesto-copy">
-                <span className="asterisk">✳</span>
-                <p>
-                  너무 완벽한 얼굴, 한 번도 가본 적 없는 곳.
-                  <br />
-                  언제부터 우리는 만들어진 일상을
-                  <br />
-                  스크롤하고 있었을까요?
-                </p>
-                <p>
-                  nepeel은 소셜의 시작점을 바꿉니다.
-                  <br />더 그럴듯한 이미지가 아니라,
-                  <br />
-                  <strong>당신이 정말 거기 있었다는 것.</strong>
-                </p>
-                <a href="#how-it-works" className="text-button light-link">
-                  우리의 방식 알아보기{" "}
-                  <ArrowUpRight aria-hidden="true" size={18} />
-                </a>
-              </div>
-            </div>
-            <div className="rules-grid reveal">
-              <article>
-                <div className="rule-top">
-                  <span className="mono">RULE 01</span>
-                  <ImageOff aria-hidden="true" size={25} />
-                </div>
-                <h3>가져오는 사진은, 없어요.</h3>
-                <p>
-                  갤러리 업로드 없이.
-                  <br />
-                  외부 이미지가 들어올 문부터 닫았어요.
-                </p>
-                <span className="rule-label">NO GALLERY UPLOADS</span>
-              </article>
-              <article>
-                <div className="rule-top">
-                  <span className="mono">RULE 02</span>
-                  <Camera aria-hidden="true" size={25} />
-                </div>
-                <h3>시작은 언제나, 카메라.</h3>
-                <p>
-                  nepeel 앱으로 직접 찍은 사진만.
-                  <br />
-                  지금 눈앞의 장면이 콘텐츠가 됩니다.
-                </p>
-                <span className="rule-label">CAPTURED IN NEPEEL</span>
-              </article>
-              <article>
-                <div className="rule-top">
-                  <span className="mono">RULE 03</span>
-                  <ShieldCheck aria-hidden="true" size={25} />
-                </div>
-                <h3>만든 이미지보다, 산 경험.</h3>
-                <p>
-                  AI 생성 이미지를 위한 자리는 없어요.
-                  <br />
-                  우리의 피드는 우리의 삶으로 채워요.
-                </p>
-                <span className="rule-label">HUMAN MOMENTS ONLY</span>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section id="how-it-works" className="how-section shell">
-          <div className="section-topline">
-            <span className="eyebrow">02 / LESS STEPS. MORE LIFE.</span>
-            <span className="mono">IT'S THAT SIMPLE.</span>
-          </div>
-          <div className="how-layout reveal">
-            <div className="how-copy">
-              <h2>
-                찍고. 나누고.
-                <br />
-                <span className="serif-word">다시, 삶으로.</span>
-              </h2>
-              <p className="section-description">
-                좋은 피드를 만드는 가장 단순한 방법.
-                <br />
-                그냥, 당신의 하루를 사는 것.
-              </p>
-              <div
-                className="steps"
-                role="tablist"
-                aria-label="nepeel 사용 방법"
-                aria-orientation="vertical"
-              >
-                {steps.map((item, i) => (
-                  <button
-                    id={`step-tab-${i}`}
-                    className={`step ${step === i ? "active" : ""}`}
-                    key={item.title}
-                    role="tab"
-                    aria-selected={step === i}
-                    aria-controls="step-panel"
-                    tabIndex={step === i ? 0 : -1}
-                    onClick={() => setStep(i)}
-                    onKeyDown={(e) => {
-                      let next = i;
-                      if (e.key === "ArrowDown") next = (i + 1) % steps.length;
-                      else if (e.key === "ArrowUp")
-                        next = (i + steps.length - 1) % steps.length;
-                      else if (e.key === "Home") next = 0;
-                      else if (e.key === "End") next = steps.length - 1;
-                      else return;
-                      e.preventDefault();
-                      setStep(next);
-                      document.getElementById(`step-tab-${next}`)?.focus();
-                    }}
-                  >
-                    <span className="step-number mono">0{i + 1}</span>
-                    <span>
-                      <strong>{item.title}</strong>
-                      {step === i && (
-                        <span className="step-description">{item.body}</span>
-                      )}
-                    </span>
-                    <ArrowUpRight aria-hidden="true" size={22} />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div
-              id="step-panel"
-              className="phone-stage"
-              role="tabpanel"
-              aria-labelledby={`step-tab-${step}`}
-              tabIndex={0}
-            >
-              <span className="stage-label mono">
-                LESS SCROLLING.
-                <br />
-                MORE LIVING.
-              </span>
-              <span className="stage-cross">+</span>
-              <div className="phone">
-                <div className="phone-top">
-                  <span className="mono">9:41</span>
-                  <span className="phone-island" />
-                  <span className="phone-status">••• ▰</span>
-                </div>
-                <div className="phone-app-header">
-                  <Brand />
-                  <span className="mono">PREVIEW</span>
-                </div>
-                <div className={`phone-photo step-${step}`}>
-                  <img
-                    src={photos[1].src}
-                    alt="nepeel 앱 체험: 여름 바다 사진"
-                    loading="lazy"
-                  />
-                  {step === 0 ? (
-                    <>
-                      <div className="viewfinder" />
-                      <span className="phone-photo-label">
-                        <span className="tiny-dot" /> YOUR NEXT MEMORY
-                      </span>
-                    </>
-                  ) : step === 1 ? (
-                    <span className="captured-label">
-                      <Check aria-hidden="true" size={16} /> THIS MOMENT IS
-                      YOURS.
-                    </span>
-                  ) : (
-                    <div className="feed-overlay">
-                      <span>잠깐, 여름에 다녀왔어.</span>
-                      <Heart aria-hidden="true" size={19} />
-                    </div>
-                  )}
-                </div>
-                <div className="phone-controls">
-                  {step === 0 ? (
-                    <>
-                      <ImageOff aria-hidden="true" size={20} />
-                      <button
-                        className="shutter small"
-                        onClick={() => setStep(1)}
-                        aria-label="촬영 단계 보기"
-                      >
-                        <span />
-                      </button>
-                      <span className="mono">1×</span>
-                    </>
-                  ) : step === 1 ? (
-                    <>
-                      <button
-                        className="text-button"
-                        onClick={() => setStep(0)}
-                      >
-                        다시 찍기
-                      </button>
-                      <button className="mini-share" onClick={() => setStep(2)}>
-                        공유하기 <ArrowUpRight aria-hidden="true" size={14} />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="phone-feed-label">
-                        <CheckCheck aria-hidden="true" size={18} /> 우리의
-                        순간에 추가
-                      </span>
-                      <button
-                        className="icon-button"
-                        aria-label="카메라 단계로 돌아가기"
-                        onClick={() => setStep(0)}
-                      >
-                        <Camera aria-hidden="true" size={20} />
-                      </button>
-                    </>
-                  )}
-                </div>
-                <span className="phone-home" />
-              </div>
-              <span className="camera-only-tag">
-                <Camera aria-hidden="true" size={19} /> CAMERA ONLY.
-                <br />
-                <strong>ALWAYS.</strong>
-              </span>
-              <span className="phone-footnote mono">
-                {steps[step].label} / SAMPLE APP SCREEN
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <section id="moments" className="moments-section">
-          <div className="shell">
-            <div className="section-topline">
-              <span className="eyebrow">03 / BEAUTIFULLY ORDINARY</span>
-              <span className="mono">LIFE DOESN'T NEED A FILTER.</span>
-            </div>
-            <div className="moments-heading reveal">
-              <h2>
-                별거 아닌 순간이,
-                <br />
-                우리의 전부니까.
-              </h2>
-              <div>
-                <p>
-                  조금 흔들리고, 가끔은 엉뚱하고.
-                  <br />
-                  그래서 더 오래 기억하고 싶은 장면들.
-                </p>
-                <span className="sample-disclaimer">
-                  서비스 분위기를 보여주는 샘플 사진입니다.
-                </span>
-              </div>
-            </div>
-            <div className="gallery-toolbar">
-              <div className="gallery-filters" aria-label="사진 카테고리">
-                {["전체", "일상", "여행", "함께"].map((category) => (
-                  <button
-                    key={category}
-                    className={filter === category ? "active" : ""}
-                    aria-pressed={filter === category}
-                    onClick={() => setFilter(category)}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-              <span className="mono gallery-count" aria-live="polite">
-                {String(
-                  photos.filter(
-                    (p) => filter === "전체" || p.category === filter,
-                  ).length,
-                ).padStart(2, "0")}{" "}
-                MOMENTS
-              </span>
-            </div>
-            <div className="moment-gallery">
-              {photos.map(
-                (photo, i) =>
-                  (filter === "전체" || photo.category === filter) && (
-                    <button
-                      className={`moment-card moment-${i}`}
-                      key={photo.frame}
-                      onClick={() => setSelectedPhoto(i)}
-                      aria-label={`${photo.title} 사진 크게 보기`}
-                    >
-                      <div className="moment-image">
-                        <img src={photo.src} alt={photo.alt} loading="lazy" />
-                        <span className="moment-expand">
-                          <ArrowUpRight aria-hidden="true" size={21} />
-                        </span>
-                        <span className="moment-frame mono">
-                          FRAME / {photo.frame}
-                        </span>
-                      </div>
-                      <div className="moment-caption">
-                        <h3>{photo.title}</h3>
-                        <span className="mono">{photo.place}</span>
-                      </div>
-                    </button>
-                  ),
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section className="faq-section shell">
-          <div className="faq-intro">
-            <span className="eyebrow">A FEW THINGS TO KNOW</span>
-            <h2>
-              궁금한 게<br />
-              있다면<span className="lime-period">?</span>
-            </h2>
-            <span className="faq-scribble">let's keep it real.</span>
-          </div>
-          <div className="faq-list">
-            {faqs.map((faq, i) => (
-              <details key={faq.q}>
-                <summary>
-                  <span className="mono">0{i + 1}</span>
-                  <h3>{faq.q}</h3>
-                  <Plus aria-hidden="true" size={21} />
-                </summary>
-                <p>{faq.a}</p>
-              </details>
-            ))}
-          </div>
-        </section>
-
-        <section id="launch" className="closing-section" aria-labelledby="launch-title">
-          <div className="shell closing-inner">
-            <span className="eyebrow">
-              <span className="live-dot" /> COMING SOON / NEPEEL
-            </span>
-            <h2 id="launch-title">
-              진짜의 시작,
-              <br />
-              <span>준비 중.</span>
-              <svg
-                className="closing-arrow"
-                viewBox="0 0 150 150"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path d="M15 125 126 17M40 19l88-3-1 89" />
-              </svg>
-            </h2>
-            <div className="closing-bottom">
-              <p>
-                직접 찍은 순간으로 연결되는 세상을 준비하고 있어요.
-                <br />
-                앱 출시 소식은 이곳에서 가장 먼저 전할게요.
-              </p>
-              <button className="button button-dark" onClick={openExperience}>
-                서비스 미리보기{" "}
-                <ArrowUpRight aria-hidden="true" size={20} />
-              </button>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className="site-footer shell">
-        <div className="footer-top">
-          <a href="#" aria-label="nepeel 맨 위로">
-            <Brand large />
-          </a>
-          <span className="footer-motto">
-            LESS FAKE.
-            <br />
-            MORE LIFE.
-          </span>
-        </div>
-        <div className="footer-bottom">
-          <span>© {new Date().getFullYear()} nepeel</span>
-          <span>오직 우리가 찍은, 우리의 세상.</span>
-          <div>
-            <button
-              className="text-button"
-              aria-expanded={creditsOpen}
-              onClick={() => setCreditsOpen(!creditsOpen)}
-            >
-              Photo credits <ChevronDown aria-hidden="true" size={14} />
+              <ChevronRight size={16} />
             </button>
-            <a href="#main">Back to top ↑</a>
+          ) : (
+            <button className="account-button" onClick={() => setModal("auth")}>
+              <span className="avatar neutral">
+                <UserRound size={20} />
+              </span>
+              <span>
+                <b>나답게, 시작하기</b>
+                <small>로그인 / 회원가입</small>
+              </span>
+              <ArrowUpRight size={16} />
+            </button>
+          )}
+          <div className="sidebar-foot">
+            <span>© 2026 nepeel</span>
+            <span>Made for real life.</span>
           </div>
         </div>
-        {creditsOpen && (
-          <div className="photo-credits">
-            <p>
-              사이트의 사진은 nepeel 게시물이 아닌 Unsplash 샘플 사진입니다.
-            </p>
-            <div>
-              {photos.map((p) => (
-                <a
-                  key={p.frame}
-                  href={p.source}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {p.place} <ArrowUpRight aria-hidden="true" size={12} />
-                </a>
-              ))}
-            </div>
-            <a href="/photo-credits.txt" target="_blank" rel="noreferrer">
-              원본 이미지 출처 전체 보기 ↗
+      </aside>
+      <div className="app-shell">
+        <header className="topbar">
+          <div className="mobile-brand">
+            <a href="#feed" onClick={() => go("feed")} aria-label="nepeel 홈">
+              <Brand />
             </a>
           </div>
-        )}
-      </footer>
-
-      <Experience
-        open={experienceOpen}
-        onClose={() => setExperienceOpen(false)}
-      />
-      <dialog
-        ref={photoDialog}
-        className="photo-dialog"
-        aria-label="샘플 사진 크게 보기"
-        onCancel={() => setSelectedPhoto(null)}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) setSelectedPhoto(null);
-        }}
-      >
-        {selectedPhoto !== null && (
-          <div className="lightbox-inner">
-            <button
-              className="icon-button lightbox-close"
-              aria-label="사진 닫기"
-              onClick={() => setSelectedPhoto(null)}
-            >
-              <X aria-hidden="true" />
-            </button>
-            <img
-              src={photos[selectedPhoto].src}
-              alt={photos[selectedPhoto].alt}
+          <div className="topbar-note">
+            <span className="live-dot" /> YOUR LIFE. YOUR LENS.
+          </div>
+          <form className="search-field" onSubmit={searchSubmit} role="search">
+            <Search size={17} />
+            <input
+              aria-label="사람 또는 순간 검색"
+              placeholder="사람, 순간을 찾아보세요"
+              value={searchDraft}
+              maxLength={80}
+              onChange={(e) => setSearchDraft(e.target.value)}
             />
-            <div className="lightbox-caption">
-              <div>
-                <span className="eyebrow">
-                  SAMPLE MOMENT / {photos[selectedPhoto].frame}
+            <kbd>↵</kbd>
+          </form>
+          <button
+            className="top-account"
+            onClick={() => (session ? go("profile") : setModal("auth"))}
+          >
+            {session ? (
+              <Avatar name={profile?.display_name ?? "나"} size="small" />
+            ) : (
+              <>
+                함께하기 <ArrowUpRight size={15} />
+              </>
+            )}
+          </button>
+        </header>
+        <div className="page-layout">
+          <main id="main" tabIndex={-1}>
+            {view === "about" ? (
+              <About onCamera={() => setModal("camera")} />
+            ) : view === "hi" ? (
+              <Suspense
+                fallback={
+                  <p className="hi-empty" role="status">
+                    Hi를 준비하고 있어요…
+                  </p>
+                }
+              >
+                <Connections
+                  key={userId ?? "guest"}
+                  userId={userId}
+                  login={() => setModal("auth")}
+                />
+              </Suspense>
+            ) : (
+              <>
+                {view === "feed" && !postLink && (
+                  <>
+                    <div className="page-heading">
+                      <div>
+                        <div className="eyebrow">THE REAL SIDE OF SOCIAL</div>
+                        <h1>
+                          있는 그대로, 연결되다
+                          <span className="lime-period">.</span>
+                        </h1>
+                        <p>평범해서 더 소중한, 우리의 오늘.</p>
+                      </div>
+                      <span className="outline-stamp">
+                        NO FILTER.
+                        <br />
+                        <b>JUST LIFE.</b>
+                      </span>
+                    </div>
+                    <section className="manifesto-banner">
+                      <div>
+                        <span className="tiny-label">
+                          CAPTURED, NOT GENERATED.
+                        </span>
+                        <h2>진짜 순간만 들어올 수 있는 곳.</h2>
+                        <p>
+                          AI 이미지 없이. 갤러리 업로드 없이.
+                          <br className="mobile-break" /> 오직 앱에서 직접 찍은
+                          사진으로.
+                        </p>
+                        <button onClick={() => go("about")}>
+                          우리가 연결되는 방식 <ArrowRight size={16} />
+                        </button>
+                      </div>
+                      <div className="banner-lens" aria-hidden="true">
+                        <Aperture />
+                        <span>
+                          YOUR
+                          <br />
+                          POINT
+                          <br />
+                          OF VIEW.
+                        </span>
+                      </div>
+                    </section>
+                    <section
+                      className="moment-strip"
+                      aria-label="발견할 순간들"
+                    >
+                      <div className="section-line">
+                        <h2>작은 순간, 넓은 세상</h2>
+                        <button onClick={() => go("discover")}>
+                          둘러보기 <ArrowRight size={14} />
+                        </button>
+                      </div>
+                      <div className="moments">
+                        {(preview ? samplePosts : posts)
+                          .slice(0, 4)
+                          .map((post, i) => (
+                            <button
+                              className="moment"
+                              key={post.id}
+                              onClick={() => setDetail(post)}
+                            >
+                              <span className="moment-image">
+                                <img src={post.image_url} alt="" />
+                                <span>
+                                  <ArrowUpRight size={15} />
+                                </span>
+                              </span>
+                              <b>
+                                {post.sample
+                                  ? sampleMeta[i].tag
+                                  : post.display_name}
+                              </b>
+                              <small>
+                                {post.sample ? "샘플 컬렉션" : "새로운 기록"}
+                              </small>
+                            </button>
+                          ))}
+                        {!preview && !posts.length && (
+                          <div className="moment-invite">
+                            <Camera />
+                            <span>오늘의 첫 순간을 남겨보세요.</span>
+                            <button onClick={() => setModal("camera")}>
+                              앱으로 촬영하기 <ArrowUpRight size={15} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  </>
+                )}
+                {view === "discover" && (
+                  <div className="page-heading">
+                    <div>
+                      <div className="eyebrow">A WORLD THROUGH YOUR LENS</div>
+                      <h1>
+                        발견하기<span className="lime-period">.</span>
+                      </h1>
+                      <p>
+                        {search
+                          ? `“${search}”의 순간들`
+                          : "스크롤 너머, 누군가의 진짜 하루."}
+                      </p>
+                    </div>
+                    <Compass className="heading-icon" />
+                  </div>
+                )}
+                {view === "saved" && (
+                  <div className="page-heading">
+                    <div>
+                      <div className="eyebrow">KEEP A LITTLE INSPIRATION</div>
+                      <h1>
+                        저장한 순간<span className="lime-period">.</span>
+                      </h1>
+                      <p>다시 꺼내 보고 싶은 장면들을 모아두세요.</p>
+                    </div>
+                    <Bookmark className="heading-icon" />
+                  </div>
+                )}
+                {view === "profile" && (
+                  <section className="profile-panel">
+                    <Avatar name={profile?.display_name ?? "나"} size="large" />
+                    <div>
+                      <div className="eyebrow">MY POINT OF VIEW</div>
+                      <h1>
+                        {profile?.display_name ?? "당신의 이야기를 기다려요."}
+                      </h1>
+                      <p>
+                        {profile?.bio ||
+                          "작은 순간부터, 있는 그대로 남겨보세요."}
+                      </p>
+                      {session && <small>@{profile?.username}</small>}
+                    </div>
+                    {session && (
+                      <div className="profile-controls">
+                        <button
+                          className="outline-button"
+                          onClick={() => go("saved")}
+                        >
+                          <Bookmark size={16} /> 저장한 순간
+                        </button>
+                        <button
+                          className="outline-button"
+                          onClick={() => setModal("edit")}
+                        >
+                          프로필 수정
+                        </button>
+                        <button
+                          className="text-button"
+                          onClick={() =>
+                            void run("signout", async () => {
+                              const { error: e } =
+                                await supabase!.auth.signOut();
+                              if (e) throw e;
+                              go("feed");
+                            })
+                          }
+                        >
+                          <LogOut size={15} /> 로그아웃
+                        </button>
+                        <button
+                          className="text-button"
+                          onClick={() => setModal("deleteAccount")}
+                        >
+                          회원 탈퇴
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                )}
+                {postLink && (
+                  <button className="back-link" onClick={reset}>
+                    <ArrowLeft size={16} /> 전체 피드로
+                  </button>
+                )}
+                <div className="feed-toolbar">
+                  <div className="feed-tabs">
+                    {view === "feed" && !postLink ? (
+                      <>
+                        <button
+                          className={mode === "all" ? "selected" : ""}
+                          onClick={() => setMode("all")}
+                        >
+                          모두의 순간
+                        </button>
+                        <button
+                          className={mode === "following" ? "selected" : ""}
+                          onClick={() => setMode("following")}
+                        >
+                          팔로잉
+                        </button>
+                      </>
+                    ) : (
+                      <h2>
+                        {view === "profile"
+                          ? "내가 남긴 순간"
+                          : postLink
+                            ? "공유된 순간"
+                            : "모든 순간"}
+                      </h2>
+                    )}
+                  </div>
+                  <button
+                    className="sort-label"
+                    onClick={() => {
+                      setRefresh((v) => v + 1);
+                      notify("최신 순간을 불러옵니다.");
+                    }}
+                    aria-label="최신순 피드 새로고침"
+                  >
+                    <SlidersHorizontal size={14} /> 최신순
+                  </button>
+                </div>
+                {preview && (
+                  <div className="preview-note">
+                    <span>
+                      <Info size={14} />
+                      {postLink
+                        ? "이 사진은 로그인한 멤버에게만 보여요."
+                        : "둘러보기 · 실제 회원 게시물이 아닌 샘플 사진입니다."}
+                    </span>
+                    <button onClick={() => setModal("auth")}>
+                      로그인 <ArrowRight size={13} />
+                    </button>
+                  </div>
+                )}
+                {loading || !authReady ? (
+                  <div className="loading-state" role="status">
+                    <LoaderCircle className="spin" /> 순간들을 불러오는 중
+                  </div>
+                ) : error ? (
+                  <div className="empty-state">
+                    <RefreshCw />
+                    <h3>잠시 연결이 끊겼어요.</h3>
+                    <p>{error}</p>
+                    <button
+                      className="dark-button"
+                      onClick={() => setRefresh((v) => v + 1)}
+                    >
+                      다시 시도
+                    </button>
+                  </div>
+                ) : !posts.length || (postLink && preview) ? (
+                  <div className="empty-state">
+                    <Camera />
+                    <h3>
+                      {preview &&
+                      (view === "saved" ||
+                        view === "profile" ||
+                        mode === "following" ||
+                        postLink)
+                        ? "당신의 연결을 시작해 보세요."
+                        : search
+                          ? "아직 발견하지 못한 순간이에요."
+                          : "첫 번째 순간을 기다리고 있어요."}
+                    </h3>
+                    <p>
+                      {preview
+                        ? "로그인하면 같은 계정으로 웹과 앱을 함께 사용할 수 있어요."
+                        : search
+                          ? "다른 단어로 찾아보세요."
+                          : mode === "following"
+                            ? "마음에 드는 사람을 팔로우해 보세요."
+                            : view === "saved"
+                              ? "마음에 드는 사진의 책갈피를 눌러보세요."
+                              : "앱에서 촬영한 사진이 이곳에도 함께 나타납니다."}
+                    </p>
+                    <button
+                      className="dark-button"
+                      onClick={() =>
+                        preview
+                          ? setModal("auth")
+                          : search || mode === "following" || view === "saved"
+                            ? reset()
+                            : setModal("camera")
+                      }
+                    >
+                      {preview
+                        ? "로그인 / 회원가입"
+                        : search || mode === "following" || view === "saved"
+                          ? "모든 순간 보기"
+                          : "순간 기록하기"}
+                      <ArrowUpRight size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className={
+                      view === "discover" ? "explore-grid" : "feed-list"
+                    }
+                  >
+                    {posts.map((post, i) =>
+                      view === "discover" ? (
+                        <button
+                          className="explore-item"
+                          key={post.id}
+                          onClick={() => setDetail(post)}
+                        >
+                          <img
+                            src={post.image_url}
+                            alt={post.caption || `${post.display_name}의 사진`}
+                            loading="lazy"
+                          />
+                          <span className="explore-info">
+                            <b>{post.display_name}</b>
+                            <span>
+                              {post.sample ? "미리보기" : "앱 촬영"}{" "}
+                              <ArrowUpRight size={15} />
+                            </span>
+                          </span>
+                        </button>
+                      ) : (
+                        <article className="post" key={post.id}>
+                          <header className="post-header">
+                            <Avatar name={post.display_name} index={i} />
+                            <div className="post-person">
+                              <b>
+                                {post.display_name}
+                                <span>
+                                  @
+                                  {post.username.length > 18
+                                    ? post.username.slice(0, 12) + "…"
+                                    : post.username}
+                                </span>
+                              </b>
+                              <small>
+                                {post.sample
+                                  ? sampleMeta.find((m) => m.id === post.id)
+                                      ?.location
+                                  : "직접 남긴 순간"}
+                                <i>·</i>
+                                {timeLabel(post)}
+                              </small>
+                            </div>
+                            {post.user_id !== userId && (
+                              <button
+                                className={`follow-button ${post.following ? "is-following" : ""}`}
+                                onClick={() => void follow(post)}
+                                disabled={busy.includes(
+                                  `follow-${post.user_id}`,
+                                )}
+                              >
+                                {post.following ? (
+                                  <>
+                                    <Check size={13} /> 팔로잉
+                                  </>
+                                ) : (
+                                  "팔로우"
+                                )}
+                              </button>
+                            )}
+                            {!post.sample && (
+                              <button
+                                className="icon-button compact"
+                                aria-label={
+                                  post.user_id === userId
+                                    ? "게시물 삭제"
+                                    : "게시물 신고"
+                                }
+                                onClick={() =>
+                                  post.user_id === userId
+                                    ? setDeleting(post)
+                                    : setReport(post)
+                                }
+                              >
+                                {post.user_id === userId ? (
+                                  <Trash2 size={17} />
+                                ) : (
+                                  <Flag size={17} />
+                                )}
+                              </button>
+                            )}
+                          </header>
+                          <button
+                            className={`post-photo ${post.sample ? post.id : ""}`}
+                            onClick={() => setDetail(post)}
+                            aria-label={`${post.display_name}의 사진 크게 보기`}
+                          >
+                            <img
+                              src={post.image_url}
+                              alt={
+                                post.caption || `${post.display_name}의 사진`
+                              }
+                              loading={i === 0 ? "eager" : "lazy"}
+                            />
+                            <span className="photo-corner">
+                              <Camera size={13} />{" "}
+                              {post.sample ? "SAMPLE MOMENT" : "SHOT ON NEPEEL"}
+                            </span>
+                            <span className="photo-index">
+                              {String(i + 1).padStart(2, "0")} / REAL LIFE
+                            </span>
+                          </button>
+                          {actions(post)}
+                          <div className="post-copy">
+                            {!post.sample && Number(post.like_count) > 0 && (
+                              <strong className="like-count">
+                                좋아요{" "}
+                                {Number(post.like_count).toLocaleString()}개
+                              </strong>
+                            )}
+                            <p>
+                              <b>{post.display_name}</b> {post.caption}
+                            </p>
+                            <button
+                              className="comment-link"
+                              onClick={() => setDetail(post)}
+                            >
+                              {post.comment_count
+                                ? `댓글 ${post.comment_count}개 보기`
+                                : "이 순간에 한마디 남기기"}
+                              <ArrowUpRight size={13} />
+                            </button>
+                          </div>
+                        </article>
+                      ),
+                    )}
+                  </div>
+                )}
+                {hasMore && (
+                  <button
+                    className="load-more outline-button"
+                    onClick={() => void nextPage()}
+                    disabled={loadMore}
+                  >
+                    {loadMore ? (
+                      <LoaderCircle className="spin" size={16} />
+                    ) : (
+                      <ArrowDown size={16} />
+                    )}{" "}
+                    더 많은 순간 보기
+                  </button>
+                )}
+                {!loading && posts.length > 0 && !hasMore && (
+                  <div className="feed-end">
+                    <Aperture size={25} />
+                    <p>화면 밖에도, 좋은 순간이 기다리고 있어요.</p>
+                    <span>GO LIVE A LITTLE.</span>
+                  </div>
+                )}
+              </>
+            )}
+          </main>
+          <aside className="right-rail">
+            <section className="hi-invite-card">
+              <span>A LITTLE HI. A NEW POSSIBILITY.</span>
+              <h2>좋아요, 그다음은 hi.</h2>
+              <p>
+                같은 도시부터 지구 반대편까지.
+                <br />
+                서로의 조건이 맞는 사람과 인사해요.
+              </p>
+              <button className="dark-button" onClick={() => go("hi")}>
+                Hi 연결 시작하기 <ArrowUpRight size={17} />
+              </button>
+            </section>
+            <section className="welcome-card">
+              <div className="card-eyebrow">
+                <span className="live-dot" /> ONLY ON NEPEEL
+              </div>
+              <h2>
+                그럴듯한 세상보다,
+                <br />
+                <span>당신의 진짜 세상.</span>
+              </h2>
+              <p>
+                잘 나온 사진이 아니어도 괜찮아요.
+                <br />
+                직접 마주한 순간이면 충분해요.
+              </p>
+              <button
+                className="dark-button"
+                onClick={() =>
+                  session ? setModal("camera") : setModal("auth")
+                }
+              >
+                {session ? "오늘의 순간 남기기" : "나의 순간 시작하기"}
+                <ArrowUpRight size={17} />
+              </button>
+              <small>
+                <ShieldCheck size={13} /> 웹과 앱, 하나의 계정으로
+              </small>
+            </section>
+            <section className="rules-card">
+              <div className="section-line">
+                <h2>우리의 작은 원칙</h2>
+                <Aperture size={19} />
+              </div>
+              <div className="rule-row">
+                <span>01</span>
+                <div>
+                  <b>직접 찍어요.</b>
+                  <p>nepeel 앱 카메라로만 촬영해요.</p>
+                </div>
+                <Camera size={17} />
+              </div>
+              <div className="rule-row">
+                <span>02</span>
+                <div>
+                  <b>있는 그대로 나눠요.</b>
+                  <p>AI 생성 이미지와 외부 파일은 받지 않아요.</p>
+                </div>
+                <Sparkles size={17} />
+              </div>
+              <div className="rule-row">
+                <span>03</span>
+                <div>
+                  <b>진짜 사람과 연결돼요.</b>
+                  <p>멤버끼리 서로의 일상을 만나요.</p>
+                </div>
+                <UserRound size={17} />
+              </div>
+              <button className="text-button" onClick={() => go("about")}>
+                촬영 확인은 어떻게 하나요? <ArrowRight size={13} />
+              </button>
+            </section>
+            <section className="app-card">
+              <div className="app-card-art" aria-hidden="true">
+                <div className="mini-phone">
+                  <div className="mini-notch" />
+                  <Aperture />
+                  <div className="mini-shutter" />
+                </div>
+                <span className="orbit-label">
+                  GO OUT.
+                  <br />
+                  LOOK UP.
+                  <br />
+                  CAPTURE.
                 </span>
-                <h2>{photos[selectedPhoto].title}</h2>
+                <span className="sticker">
+                  IT'S YOUR
+                  <br />
+                  <b>REAL LIFE.</b>
+                </span>
               </div>
-              <div className="lightbox-controls">
+              <div className="app-card-copy">
+                <div>
+                  <h3>좋은 순간은, 밖에 있으니까.</h3>
+                  <p>앱에서 찍고, 어디서나 연결돼요.</p>
+                </div>
                 <button
                   className="icon-button"
-                  aria-label="이전 사진"
-                  onClick={() =>
-                    setSelectedPhoto(
-                      (selectedPhoto + photos.length - 1) % photos.length,
-                    )
-                  }
+                  aria-label="앱 촬영 안내"
+                  onClick={() => setModal("camera")}
                 >
-                  <ArrowLeft aria-hidden="true" />
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label="다음 사진"
-                  onClick={() =>
-                    setSelectedPhoto((selectedPhoto + 1) % photos.length)
-                  }
-                >
-                  <ArrowRight aria-hidden="true" />
+                  <ArrowUpRight />
                 </button>
               </div>
+            </section>
+            <div className="rail-footer">
+              <button onClick={() => go("about")}>
+                서비스 소개 · 커뮤니티 원칙
+              </button>
+              <p>© 2026 nepeel. Keep it real.</p>
+              <span>NO GENERATED MOMENTS.</span>
             </div>
-          </div>
-        )}
-      </dialog>
+          </aside>
+        </div>
+      </div>
+      <nav className="mobile-nav" aria-label="모바일 메뉴">
+        {navigation.slice(0, 2).map((item) => (
+          <button
+            key={item.id}
+            aria-label={item.label}
+            aria-current={view === item.id ? "page" : undefined}
+            onClick={() => go(item.id)}
+          >
+            <item.icon />
+            <span>{item.label}</span>
+          </button>
+        ))}
+        <button
+          className="mobile-capture"
+          aria-label="앱으로 순간 기록하기"
+          onClick={() => setModal("camera")}
+        >
+          <Plus />
+        </button>
+        {navigation
+          .slice(2)
+          .filter((item) => item.id !== "saved")
+          .map((item) => (
+            <button
+              key={item.id}
+              aria-label={item.label}
+              aria-current={view === item.id ? "page" : undefined}
+              onClick={() => go(item.id)}
+            >
+              <item.icon />
+              <span>{item.label}</span>
+            </button>
+          ))}
+      </nav>
+      {notice && (
+        <div className="toast" role="status">
+          <Check size={18} />
+          {notice}
+          <button aria-label="알림 닫기" onClick={() => setNotice("")}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
+      {modal === "auth" && (
+        <AuthDialog
+          close={() => setModal(null)}
+          onDone={() => {
+            setModal(null);
+            notify("반가워요. 당신의 순간을 기다렸어요.");
+          }}
+        />
+      )}
+      {modal === "camera" && <CameraDialog close={() => setModal(null)} />}
+      {modal === "edit" && profile && (
+        <EditProfile
+          profile={profile}
+          close={() => setModal(null)}
+          saved={() => {
+            setModal(null);
+            setRefresh((v) => v + 1);
+            notify("프로필을 저장했어요.");
+          }}
+        />
+      )}
+      {modal === "recovery" && <Recovery close={() => setModal(null)} />}
+      {detail && (
+        <PostDialog
+          post={detail}
+          actions={actions(detail)}
+          userId={userId}
+          close={() => setDetail(null)}
+          login={() => {
+            setDetail(null);
+            setModal("auth");
+          }}
+          onComment={() =>
+            patchPost(detail.id, {
+              comment_count: Number(detail.comment_count) + 1,
+            })
+          }
+        />
+      )}
+      {modal === "deleteAccount" && session && (
+        <DeleteAccount
+          close={() => setModal(null)}
+          done={() => {
+            setModal(null);
+            go("feed");
+            setNotice("계정이 삭제되었습니다.");
+          }}
+        />
+      )}
+      {report && (
+        <ReportDialog
+          post={report}
+          userId={userId!}
+          close={() => setReport(null)}
+          done={() => {
+            setReport(null);
+            notify("신고를 접수했어요. 운영자가 확인하겠습니다.");
+          }}
+        />
+      )}
+      {deleting && (
+        <Dialog title="이 순간을 삭제할까요?" close={() => setDeleting(null)}>
+          <p className="muted">
+            사진과 좋아요, 댓글이 삭제됩니다. 이 작업은 되돌릴 수 없어요.
+          </p>
+          <button
+            className="dark-button full"
+            disabled={busy.includes("delete")}
+            onClick={() =>
+              void run("delete", async () => {
+                const { data } = await supabase!.auth.getSession();
+                const response = await fetch("/api/capture", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${data.session?.access_token}`,
+                  },
+                  body: JSON.stringify({
+                    action: "delete",
+                    postId: deleting.id,
+                  }),
+                });
+                if (!response.ok) throw new Error("delete");
+                setPosts((old) => old.filter((p) => p.id !== deleting.id));
+                setDeleting(null);
+                notify("사진을 삭제했어요.");
+              })
+            }
+          >
+            삭제하기
+          </button>
+        </Dialog>
+      )}
     </>
   );
 }
