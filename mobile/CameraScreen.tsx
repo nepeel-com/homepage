@@ -36,6 +36,7 @@ export default function CameraScreen({
   const keyRef = useRef<string | null>(null);
   const [facing, setFacing] = useState<"back" | "front">("back");
   const [ready, setReady] = useState(false);
+  const [active, setActive] = useState(AppState.currentState === "active");
   const [photo, setPhoto] = useState<{
     uri: string;
     challenge: Challenge;
@@ -56,7 +57,12 @@ export default function CameraScreen({
   };
   useEffect(() => {
     const listener = AppState.addEventListener("change", (state) => {
-      if (state !== "active" && !pendingRef.current) reset();
+      setActive(state === "active");
+      if (state !== "active") {
+        setReady(false);
+        if (!pendingRef.current) reset();
+        else generation.current++;
+      }
     });
     return () => {
       generation.current++;
@@ -80,7 +86,13 @@ export default function CameraScreen({
     return () => clearInterval(timer);
   }, [photo]);
   async function capture() {
-    if (!camera.current || !ready || pendingRef.current) return;
+    if (
+      !camera.current ||
+      !ready ||
+      pendingRef.current ||
+      AppState.currentState !== "active"
+    )
+      return;
     pendingRef.current = true;
     setError("");
     const current = generation.current;
@@ -198,7 +210,7 @@ export default function CameraScreen({
       </View>
       {photo ? (
         <Image source={{ uri: photo.uri }} style={s.camera} />
-      ) : (
+      ) : active ? (
         <CameraView
           ref={camera}
           style={s.camera}
@@ -209,6 +221,7 @@ export default function CameraScreen({
             setError("카메라를 열지 못했어요. 권한을 확인해 주세요.")
           }
           onCameraReady={async () => {
+            const current = generation.current;
             try {
               const sizes =
                 await camera.current?.getAvailablePictureSizesAsync();
@@ -227,9 +240,15 @@ export default function CameraScreen({
             } catch {
               /* Camera default remains available. */
             }
-            setReady(true);
+            if (
+              current === generation.current &&
+              AppState.currentState === "active"
+            )
+              setReady(true);
           }}
         />
+      ) : (
+        <View style={s.camera} />
       )}
       <View style={s.controls}>
         {photo ? (
