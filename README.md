@@ -18,7 +18,7 @@
 - Vercel `nepeel-com/homepage`의 Production 환경에 웹 공개 URL·키, 서버 URL, `APP_ATTEST_ENVIRONMENT=production`, 코드의 iOS/Android 앱 ID를 저장했습니다. 앱 ID의 Apple/Google 등록은 별도로 필요합니다.
 - Supabase 서버 전용 키는 Vercel Production의 **Secret** 환경변수에 저장했습니다. **Apple/Google 앱 인증은 아직 설정되지 않았습니다.** 인증 설정이 없으면 사진 게시는 거부됩니다.
 - **Vercel 운영 배포 완료:** `https://nepeel.com`에서 새 SNS 웹을 제공합니다. 서버 키를 반영한 배포 ID는 `GHkUkCoLTbmLJCAztC2BJ4G2o9pZ`, 소스 커밋은 로컬 `57ea3f6`입니다.
-- GitHub 원격 `main`은 아직 이전 소개 페이지입니다. 기존 Git 자격 증명의 `pj-waruru` 계정은 쓰기 권한이 없어 동기화하지 못했습니다. 새 소스를 GitHub에 반영하기 전 기존 커밋을 재배포하면 소개 페이지로 돌아갈 수 있습니다. 스토어 제출·실기기 촬영 검증도 남아 있습니다.
+- GitHub `nepeel-com/homepage`의 `main`에 웹·앱·서버·DB·테스트 소스를 업로드했습니다. 원격을 fetch하여 검증한 로컬 소스와 파일 내용을 비교했습니다. 스토어 제출·실기기 촬영 검증과 Netlify 배포는 남아 있습니다.
 
 ## 로컬 실행
 
