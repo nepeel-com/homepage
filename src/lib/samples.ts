@@ -1,0 +1,58 @@
+import type { Post } from "../../shared/types";
+const samples = [
+  {
+    id: "sample-ocean",
+    name: "서윤",
+    username: "seoyun",
+    image: "ocean",
+    caption: "계획에 없던 바다. 그래서 더 좋았던 오늘.",
+    location: "제주, 그 어느 바닷가",
+    tag: "잠깐의 쉼",
+  },
+  {
+    id: "sample-concert",
+    name: "도현",
+    username: "dohyun",
+    image: "concert",
+    caption: "사진에는 안 담기는 소리가 있다. 오늘은 여기.",
+    location: "음악이 있는 곳",
+    tag: "우리의 밤",
+  },
+  {
+    id: "sample-road",
+    name: "지우",
+    username: "jiwoo",
+    image: "roadtrip",
+    caption: "목적지보다 가는 길이 더 기억날 것 같은 여행.",
+    location: "길 위에서",
+    tag: "낯선 풍경",
+  },
+  {
+    id: "sample-portrait",
+    name: "하린",
+    username: "harin",
+    image: "street-style",
+    caption: "별일 없는 하루도 남겨둘 이유는 충분하니까.",
+    location: "나의 일상",
+    tag: "있는 그대로",
+  },
+];
+export const samplePosts: Post[] = samples.map((p, i) => ({
+  id: p.id,
+  user_id: p.username,
+  caption: p.caption,
+  image_path: "",
+  image_url: `/images/${p.image}.webp`,
+  created_at: new Date(Date.UTC(2026, 9, 14, 3 - i)).toISOString(),
+  captured_at: new Date(Date.UTC(2026, 9, 14, 3 - i)).toISOString(),
+  platform: "ios",
+  username: p.username,
+  display_name: p.name,
+  like_count: 0,
+  comment_count: 0,
+  liked: false,
+  saved: false,
+  following: false,
+  sample: true,
+}));
+export const sampleMeta = samples;
