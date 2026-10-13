@@ -136,7 +136,11 @@ export function useConnections(
         changed,
       )
       .subscribe((status) => {
-        if (!disposed) setLiveState(status === "SUBSCRIBED");
+        if (!disposed) {
+          setLiveState(status === "SUBSCRIBED");
+          // Realtime does not replay events missed while offline/backgrounded.
+          if (status === "SUBSCRIBED") changed();
+        }
       });
     return () => {
       disposed = true;
