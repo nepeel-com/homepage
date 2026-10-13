@@ -4,6 +4,7 @@ Verified locally and against the user's Supabase project during this implementat
 
 ## Passed
 
+- GitHub source uploaded through the user's existing authenticated browser session without granting GitHub CLI access. Fetched remote `081f1bf` and compared its complete tree with local tested commit `45f9672`: identical. Removed the old tracked TypeScript cache through a recoverable Git commit. No `.env.local`, mobile `.env`, or server secret uploaded.
 - Hi additive migration `202610140003_hi_connections.sql` applied to production. Live SQL: `protected_tables=5`, `client_can_insert_dm=false`, `anon_can_send=false`, `realtime_tables=2`. No synthetic member data or messages created on production.
 - Custom SMTP was saved directly by the user. A dashboard reload retained Enable custom SMTP with host `smtp.zoho.com`; Save changes was disabled. The password was not read. Actual recipient delivery is not yet verified.
 - 32 tests pass, with all four migrations included in SQL suites. Coverage adds account cascade/rollback, durable media cleanup, denial of deleted accounts holding old JWTs, same-user password reconfirmation, Auth/Storage failure handling, offline message catch-up and preservation of paginated conversations. Existing capture, matching, quotas, privacy and hosting boundary tests also pass.
@@ -31,7 +32,7 @@ Verified locally and against the user's Supabase project during this implementat
 
 ## Not yet verified / configured
 
-- GitHub source synchronization. Existing Git Credential Manager account `pj-waruru` received HTTP 403 on a dry-run push; no remote branch was changed. Vercel was deployed directly using the user's authenticated `nepeel-com` team. The GitHub repository still contains the old landing page.
+- Netlify GitHub app authorization and first deployment. CLI authentication expired without granting access; GitHub source synchronization was subsequently completed through browser uploads.
 - Apple Developer and Play Console identities/credentials; genuine iOS registration/assertion and Google integrity response.
 - A real member's email confirmation and two-device end-to-end round trip. No fake members were inserted into the live project for screenshots or tests.
 - Hi/DM UI with two live member sessions, background/foreground delivery on devices, largest Dynamic Type, screen reader testing, full-site localization and moderation operations. DB tests are local PGlite tests, not a claim of full managed Realtime end-to-end verification.
