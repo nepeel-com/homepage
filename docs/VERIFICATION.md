@@ -4,6 +4,8 @@ Verified locally and against the user's Supabase project during this implementat
 
 ## Passed
 
+- Realtime reconnect/foreground catch-up verified in a local browser harness using the production `useConnections` hook and a simulated transport: messages added during a CLOSED connection and inactive screen appeared after SUBSCRIBED/foreground without manual refresh; no console errors. Evidence: `.qa/dm-reconnect-verified.png`. This does not prove managed Supabase transport delivery.
+- Camera now unmounts in the background and waits for a fresh `onCameraReady` after foregrounding. Generation guards discard an old capture/readiness callback. Native typecheck passes; physical camera lifecycle verification still requires a device build.
 - GitHub source uploaded through the user's existing authenticated browser session without granting GitHub CLI access. Fetched remote `081f1bf` and compared its complete tree with local tested commit `45f9672`: identical. Removed the old tracked TypeScript cache through a recoverable Git commit. No `.env.local`, mobile `.env`, or server secret uploaded.
 - Hi additive migration `202610140003_hi_connections.sql` applied to production. Live SQL: `protected_tables=5`, `client_can_insert_dm=false`, `anon_can_send=false`, `realtime_tables=2`. No synthetic member data or messages created on production.
 - Custom SMTP was saved directly by the user. A dashboard reload retained Enable custom SMTP with host `smtp.zoho.com`; Save changes was disabled. The password was not read. Actual recipient delivery is not yet verified.

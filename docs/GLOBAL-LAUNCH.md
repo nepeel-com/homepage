@@ -20,6 +20,8 @@
 
 Supabase도 [Free 한도](https://supabase.com/pricing)가 있습니다. 사진 저장/다운로드가 주된 비용 요인이므로 2MB JPEG 제한, 비공개 버킷, 만료되는 서명 URL, 외부 업로드 차단을 유지합니다. 메일함 요금과 앱 스토어 개발자 계정 요금은 웹 호스팅과 별개입니다. 아직 Apple/Google 계정이 없어 공식 앱 촬영 게시는 잠겨 있습니다.
 
+웹 무료 배포와 공식 네이티브 앱 배포는 별도 조건입니다. [Apple의 공개 배포](https://developer.apple.com/help/account/membership/programs-overview/)에는 Developer Program 가입이 필요합니다. Android는 Cloud 프로젝트만으로도 [Play Integrity API 초기 통합](https://developer.android.com/google/play/integrity/setup)을 시작할 수 있지만, 현재 서버가 요구하는 `PLAY_RECOGNIZED`는 Google Play에 등록된 앱·인증서와 일치해야 합니다. 일반 사이드로드를 인증된 nepeel 앱 배포로 간주하거나 검증을 끄지 않습니다. 유료 계정 가입은 별도 사용자 결정 사항입니다.
+
 ## 응답 속도와 확장 구조
 
 | 처리 | 현재 방식 | 확장 시 변경 |
@@ -36,7 +38,7 @@ CDN이 글로벌이어도 인증·DB 쓰기 지연은 DB 리전과 사용자의 
 ## 다음 출시 게이트
 
 1. Zoho SMTP 설정은 사용자가 저장했고 새로고침 후 유지됨을 확인했습니다. 실제 가입 인증메일 수신과 로그인 복귀를 사용자 계정으로 확인해야 합니다. 인증 우회는 추가하지 않습니다.
-2. GitHub `nepeel-com/homepage` 최신 소스 반영: 기존 PC 계정은 쓰기 권한이 없고, 브라우저 파일 업로드는 확장 프로그램 권한이 필요합니다.
+2. GitHub `nepeel-com/homepage`에 소스 업로드 완료. 브라우저의 기존 로그인으로 동기화하고 원격 fetch 후 파일 내용을 비교했습니다.
 3. Netlify Free 로그인/계정 연결 후 환경 설정, 임시 URL 검증, `nepeel.com` 도메인 전환 순으로 진행합니다. 준비되지 않은 대상에 DNS부터 변경하지 않습니다. 게시물·계정 삭제의 사진 정리 재시도 함수 `cleanup-media`가 예약 함수로 배포되었는지도 확인합니다.
 4. 두 실제 성인 참여자의 동의하에 요청→수락→DM→차단 흐름과 기기 간 갱신을 확인합니다. 테스트용 가짜 회원을 운영 환경에 심지 않습니다.
 5. 본인확인/나이 보증은 아직 없습니다. 자기신고만으로 인증된 성인이라고 표시하지 않습니다. 정식 데이팅 운영 전 지역별 자격 정책, 개인정보·보관/삭제 절차, 신고 대응 인력을 정해야 합니다.
