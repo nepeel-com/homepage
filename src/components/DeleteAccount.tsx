@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog } from "../App";
 import { supabase } from "../lib/supabase";
 import { accountAction } from "../../shared/account";
@@ -6,14 +6,24 @@ import { accountAction } from "../../shared/account";
 export default function DeleteAccount({
   close,
   done,
+  userId,
 }: {
   close: () => void;
   done: () => void;
+  userId: string;
 }) {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const alive = useRef(true),
+    lock = useRef(false);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   return (
     <Dialog
       title="nepeel 회원 탈퇴"
@@ -33,24 +43,34 @@ export default function DeleteAccount({
         className="form-stack"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (busy || confirmation !== "DELETE" || !password) return;
+          if (lock.current || confirmation !== "DELETE" || !password) return;
+          lock.current = true;
           setBusy(true);
           setError("");
           try {
-            await accountAction(supabase!, "", {
-              action: "deleteAccount",
-              password,
-              confirmation,
-            });
+            await accountAction(
+              supabase!,
+              "",
+              {
+                action: "deleteAccount",
+                password,
+                confirmation,
+              },
+              userId,
+            );
+            const { data } = await supabase!.auth.getSession();
+            if (!alive.current || data.session?.user.id !== userId) return;
             setPassword("");
             await supabase!.auth.signOut({ scope: "local" });
-            done();
+            if (alive.current) done();
           } catch (e) {
-            setError(
-              e instanceof Error ? e.message : "탈퇴를 완료하지 못했어요.",
-            );
+            if (alive.current)
+              setError(
+                e instanceof Error ? e.message : "탈퇴를 완료하지 못했어요.",
+              );
           } finally {
-            setBusy(false);
+            lock.current = false;
+            if (alive.current) setBusy(false);
           }
         }}
       >
