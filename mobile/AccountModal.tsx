@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -31,9 +31,16 @@ export default function AccountModal({
   const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const alive = useRef(true),
+    lock = useRef(false);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
   const valid = !!post || (confirmation === "DELETE" && !!password);
   async function submit() {
-    if (busy || !valid) return;
+    if (lock.current || !valid) return;
+    lock.current = true;
     setBusy(true);
     setError("");
     try {
@@ -43,19 +50,24 @@ export default function AccountModal({
           supabase!,
           process.env.EXPO_PUBLIC_API_URL || "https://nepeel.com",
           { action: "deleteAccount", password, confirmation },
+          userId,
         );
+        const { data } = await supabase!.auth.getSession();
+        if (!alive.current || data.session?.user.id !== userId) return;
         setPassword("");
         await supabase!.auth.signOut({ scope: "local" });
       }
-      done();
+      if (alive.current) done();
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "요청을 완료하지 못했어요. 다시 시도해 주세요.",
-      );
+      if (alive.current)
+        setError(
+          e instanceof Error
+            ? e.message
+            : "요청을 완료하지 못했어요. 다시 시도해 주세요.",
+        );
     } finally {
-      setBusy(false);
+      lock.current = false;
+      if (alive.current) setBusy(false);
     }
   }
   return (

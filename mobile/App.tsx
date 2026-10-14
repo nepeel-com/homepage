@@ -22,12 +22,12 @@ import { randomUUID } from "expo-crypto";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import {
-  getFeed,
   getProfile,
   setFollowing,
   setReaction,
   updateProfile,
 } from "../shared/data";
+import { useFeed } from "../shared/useFeed";
 import type { FeedMode, Post, Profile } from "../shared/types";
 import { useComments } from "../shared/useComments";
 import CameraScreen from "./CameraScreen";
@@ -54,32 +54,56 @@ function Social() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(!supabase);
   const [authInitError, setAuthInitError] = useState(false);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [feed, setFeed] = useState<Post[]>([]);
+  const [profileState, setProfile] = useState<Profile | null>(null);
+  const [profileRefresh, setProfileRefresh] = useState(0);
+  const [profileError, setProfileError] = useState(false);
   const [mode, setMode] = useState<FeedMode>("all");
   const [focusId, setFocusId] = useState<string | null>(null);
   const [spatial, setSpatial] = useState(false);
   const [camera, setCamera] = useState(false);
   const [reference, setReference] = useState<NearbyPhoto | null>(null);
   const [hi, setHi] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [more, setMore] = useState(false);
   const [commentsPost, setCommentsPost] = useState<Post | null>(null);
   const [editing, setEditing] = useState(false);
   const [accountModal, setAccountModal] = useState<Post | "delete" | null>(
     null,
   );
   const actionLocks = useRef(new Set<string>());
-  const requestGeneration = useRef(0);
-  const loadingRef = useRef(false);
+  const authUser = useRef<string | null>(null);
+  const userId = session?.user.id;
+  const profile = profileState?.id === userId ? profileState : null;
+  const feedState = useFeed({
+    client: supabase,
+    userId,
+    enabled: ready && !!userId,
+    scope: "native-feed",
+    mode: focusId ? "all" : mode,
+    search: "",
+    postId: focusId ?? "",
+  });
+  const {
+    posts: feed,
+    setPosts: setFeed,
+    loading,
+    refreshing,
+    loadingMore,
+    hasMore: more,
+  } = feedState;
+  const reloadFeed = feedState.reload;
+  const error = feedState.error
+    ? "피드를 불러오지 못했어요. 다시 시도해 주세요."
+    : feedState.refreshError
+      ? "새 사진을 불러오지 못했어요. 기존 사진은 그대로 볼 수 있어요."
+      : "";
   useEffect(() => {
     if (!supabase) return;
     let active = true;
+    let authEvent = false;
     supabase.auth
       .getSession()
       .then(({ data, error }) => {
-        if (!active) return;
+        if (!active || authEvent) return;
+        authUser.current = data.session?.user.id ?? null;
         setSession(data.session);
         setReady(true);
         setAuthInitError(!!error);
@@ -93,11 +117,14 @@ function Social() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, next) => {
+      authEvent = true;
+      const changedAccount =
+        !!authUser.current && authUser.current !== next?.user.id;
+      authUser.current = next?.user.id ?? null;
       setSession(next);
       setReady(true);
       if (next) setAuthInitError(false);
-      if (!next) {
-        setFeed([]);
+      if (!next || changedAccount) {
         setProfile(null);
         setCamera(false);
         setReference(null);
@@ -121,9 +148,11 @@ function Social() {
       }
     };
     const links = Linking.addEventListener("url", deepLink);
-    void Linking.getInitialURL().then((url) => {
-      if (url) deepLink({ url });
-    });
+    void Linking.getInitialURL()
+      .then((url) => {
+        if (active && url) deepLink({ url });
+      })
+      .catch(() => undefined);
     return () => {
       active = false;
       subscription.unsubscribe();
@@ -132,47 +161,36 @@ function Social() {
       supabase!.auth.stopAutoRefresh();
     };
   }, []);
-  async function load(append = false) {
-    if (!supabase || !session || (loadingRef.current && append)) return;
-    const generation = ++requestGeneration.current;
-    loadingRef.current = true;
-    setLoading(true);
-    setError("");
-    try {
-      const data = await getFeed(
-        supabase,
-        focusId ? "all" : mode,
-        "",
-        append ? feed.length : 0,
-        focusId ?? undefined,
-      );
-      if (generation !== requestGeneration.current) return;
-      setFeed((old) =>
-        append
-          ? [...old, ...data.filter((p) => !old.some((o) => o.id === p.id))]
-          : data,
-      );
-      setMore(data.length === 20);
-      const nextProfile = await getProfile(supabase, session.user.id);
-      if (generation === requestGeneration.current) setProfile(nextProfile);
-    } catch {
-      if (generation === requestGeneration.current)
-        setError("피드를 불러오지 못했어요. 아래로 당겨 다시 시도해 주세요.");
-    } finally {
-      if (generation === requestGeneration.current) {
-        setLoading(false);
-        loadingRef.current = false;
-      }
-    }
-  }
   useEffect(() => {
-    setFeed([]);
-    void load();
+    if (!supabase || !userId) return;
+    let active = true;
+    setProfileError(false);
+    void getProfile(supabase, userId)
+      .then((next) => {
+        if (active) setProfile(next);
+      })
+      .catch(() => {
+        if (active) setProfileError(true);
+      });
     return () => {
-      requestGeneration.current++;
-      loadingRef.current = false;
+      active = false;
     };
-  }, [session?.user.id, mode, focusId]);
+  }, [userId, profileRefresh]);
+  useEffect(() => {
+    if (!userId || camera || hi || spatial) return;
+    const resume = () => {
+      void reloadFeed(4 * 60_000);
+    };
+    resume();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") resume();
+    });
+    return () => sub.remove();
+  }, [userId, camera, hi, spatial, reloadFeed]);
+  function load() {
+    setProfileRefresh((value) => value + 1);
+    void reloadFeed();
+  }
   function changeMode(next: FeedMode) {
     setFocusId(null);
     setMode(next);
@@ -201,7 +219,6 @@ function Social() {
         key={session.user.id}
         close={() => setSpatial(false)}
         onOpenPost={(post) => {
-          setFeed([post]);
           setFocusId(post.id);
           setSpatial(false);
         }}
@@ -229,7 +246,7 @@ function Social() {
           setCamera(false);
           setReference(null);
           changeMode("all");
-          void load();
+          if (mode === "all" && !focusId) load();
           Alert.alert(
             "당신의 순간을 나눴어요.",
             "웹에서도 같은 사진을 볼 수 있어요.",
@@ -256,7 +273,7 @@ function Social() {
                 }
               : p,
           )
-          .filter((p) => mode !== "saved" || p.saved),
+          .filter((p) => !!focusId || mode !== "saved" || p.saved),
       );
     });
   return (
@@ -275,7 +292,7 @@ function Social() {
         keyExtractor={(p) => p.id}
         refreshControl={
           <RefreshControl
-            refreshing={loading && !feed.length}
+            refreshing={refreshing || loading}
             onRefresh={() => void load()}
           />
         }
@@ -299,62 +316,91 @@ function Social() {
                 </Pressable>
               </View>
             )}
-            <Text style={s.eyebrow}>YOUR LIFE. YOUR LENS.</Text>
-            <Text style={s.title}>
-              {mode === "profile"
-                ? profile?.display_name
-                : mode === "saved"
-                  ? "저장한 순간."
-                  : "있는 그대로, 연결되다."}
-            </Text>
-            <Text style={s.muted}>
-              {mode === "profile"
-                ? profile?.bio || "내가 직접 담은 순간들."
-                : "직접 담은 우리의 하루. 웹에서도 함께해요."}
-            </Text>
-            {mode === "profile" ? (
-              <View style={s.row}>
-                <Pressable style={s.button} onPress={() => setEditing(true)}>
-                  <Text>프로필 수정</Text>
-                </Pressable>
+            {!focusId && (
+              <>
+                <Text style={s.eyebrow}>YOUR LIFE. YOUR LENS.</Text>
+                <Text style={s.title}>
+                  {mode === "profile"
+                    ? profile?.display_name
+                    : mode === "saved"
+                      ? "저장한 순간."
+                      : "있는 그대로, 연결되다."}
+                </Text>
+                <Text style={s.muted}>
+                  {mode === "profile"
+                    ? profile?.bio || "내가 직접 담은 순간들."
+                    : "직접 담은 우리의 하루. 웹에서도 함께해요."}
+                </Text>
+                {mode === "profile" ? (
+                  <View style={s.row}>
+                    <Pressable
+                      style={s.button}
+                      onPress={() => setEditing(true)}
+                    >
+                      <Text>프로필 수정</Text>
+                    </Pressable>
+                    <Pressable
+                      style={s.button}
+                      onPress={() =>
+                        void action("logout", async () => {
+                          const { error } = await supabase!.auth.signOut();
+                          if (error) throw error;
+                        })
+                      }
+                    >
+                      <Text>로그아웃</Text>
+                    </Pressable>
+                    <Pressable
+                      style={s.button}
+                      onPress={() => setAccountModal("delete")}
+                    >
+                      <Text>회원 탈퇴</Text>
+                    </Pressable>
+                  </View>
+                ) : mode !== "saved" ? (
+                  <View style={s.row}>
+                    <Pressable
+                      style={[s.pill, mode === "all" && s.selected]}
+                      onPress={() => changeMode("all")}
+                    >
+                      <Text>모두의 순간</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[s.pill, mode === "following" && s.selected]}
+                      onPress={() => changeMode("following")}
+                    >
+                      <Text>팔로잉</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </>
+            )}
+            {mode === "profile" && profileError && (
+              <View>
+                <Text style={s.error} accessibilityRole="alert">
+                  프로필을 불러오지 못했어요.
+                </Text>
                 <Pressable
                   style={s.button}
-                  onPress={() =>
-                    void action("logout", async () => {
-                      const { error } = await supabase!.auth.signOut();
-                      if (error) throw error;
-                    })
-                  }
+                  onPress={() => setProfileRefresh((value) => value + 1)}
                 >
-                  <Text>로그아웃</Text>
-                </Pressable>
-                <Pressable
-                  style={s.button}
-                  onPress={() => setAccountModal("delete")}
-                >
-                  <Text>회원 탈퇴</Text>
+                  <Text>프로필 다시 불러오기</Text>
                 </Pressable>
               </View>
-            ) : mode !== "saved" ? (
-              <View style={s.row}>
-                <Pressable
-                  style={[s.pill, mode === "all" && s.selected]}
-                  onPress={() => changeMode("all")}
-                >
-                  <Text>모두의 순간</Text>
-                </Pressable>
-                <Pressable
-                  style={[s.pill, mode === "following" && s.selected]}
-                  onPress={() => changeMode("following")}
-                >
-                  <Text>팔로잉</Text>
-                </Pressable>
-              </View>
-            ) : null}
+            )}
             {error ? (
-              <Text style={s.error} accessibilityRole="alert">
-                {error}
-              </Text>
+              <View>
+                <Text style={s.error} accessibilityRole="alert">
+                  {error}
+                </Text>
+                <Pressable
+                  style={s.button}
+                  onPress={load}
+                  disabled={refreshing || loading}
+                >
+                  <Text>{refreshing ? "다시 불러오는 중…" : "다시 시도"}</Text>
+                </Pressable>
+              </View>
             ) : null}
             {!focusId && (mode === "all" || mode === "following") && (
               <NearbyMoments
@@ -370,15 +416,23 @@ function Social() {
           </View>
         }
         ListEmptyComponent={
-          !loading ? (
+          loading ? (
+            <ActivityIndicator accessibilityLabel="피드를 불러오는 중" />
+          ) : !error && !refreshing ? (
             <View style={s.empty}>
-              <Text style={s.title}>첫 순간을 기다려요.</Text>
+              <Text style={s.title}>
+                {focusId
+                  ? "이 순간을 더 이상 볼 수 없어요."
+                  : "첫 순간을 기다려요."}
+              </Text>
               <Text style={s.muted}>
-                {mode === "saved"
-                  ? "마음에 드는 사진을 저장해 보세요."
-                  : mode === "following"
-                    ? "마음에 드는 사람을 팔로우해 보세요."
-                    : "지금 눈앞의 순간을 직접 담아보세요."}
+                {focusId
+                  ? "사진이 삭제되었거나 공유가 중단됐을 수 있어요."
+                  : mode === "saved"
+                    ? "마음에 드는 사진을 저장해 보세요."
+                    : mode === "following"
+                      ? "마음에 드는 사람을 팔로우해 보세요."
+                      : "지금 눈앞의 순간을 직접 담아보세요."}
               </Text>
               <Pressable style={s.primary} onPress={() => setCamera(true)}>
                 <Text style={s.primaryText}>카메라 열기 ↗</Text>
@@ -448,6 +502,7 @@ function Social() {
                               process.env.EXPO_PUBLIC_API_URL ||
                                 "https://nepeel.com",
                               { action: "delete", postId: post.id },
+                              session.user.id,
                             );
                             setFeed((old) =>
                               old.filter((p) => p.id !== post.id),
@@ -506,15 +561,26 @@ function Social() {
         )}
         ListFooterComponent={
           more ? (
-            <Pressable
-              style={s.button}
-              disabled={loading}
-              onPress={() => void load(true)}
-            >
-              <Text style={s.centerText}>
-                {loading ? "불러오는 중…" : "더 많은 순간 보기 ↓"}
-              </Text>
-            </Pressable>
+            <View>
+              {feedState.moreError && (
+                <Text style={s.error} accessibilityRole="alert">
+                  다음 사진을 불러오지 못했어요. 다시 시도해 주세요.
+                </Text>
+              )}
+              <Pressable
+                style={s.button}
+                disabled={loadingMore || refreshing}
+                onPress={() => void feedState.nextPage()}
+              >
+                <Text style={s.centerText}>
+                  {loadingMore
+                    ? "불러오는 중…"
+                    : feedState.moreError
+                      ? "다음 사진 다시 불러오기"
+                      : "더 많은 순간 보기 ↓"}
+                </Text>
+              </Pressable>
+            </View>
           ) : (
             <Text style={[s.small, s.end]}>GO LIVE A LITTLE.</Text>
           )
@@ -551,6 +617,7 @@ function Social() {
       </View>
       {commentsPost && (
         <CommentsModal
+          key={`${session.user.id}:${commentsPost.id}`}
           post={commentsPost}
           userId={session.user.id}
           close={() => {
@@ -561,6 +628,7 @@ function Social() {
       )}
       {editing && profile && (
         <EditModal
+          key={session.user.id}
           profile={profile}
           close={() => setEditing(false)}
           saved={() => {
@@ -571,6 +639,7 @@ function Social() {
       )}
       {accountModal && (
         <AccountModal
+          key={`${session.user.id}:${accountModal === "delete" ? "delete" : accountModal.id}`}
           post={accountModal === "delete" ? undefined : accountModal}
           userId={session.user.id}
           close={() => setAccountModal(null)}
