@@ -37,7 +37,8 @@ export interface Challenge {
 }
 export type CaptureProof =
   | { platform: "ios"; keyId: string; assertion: string }
-  | { platform: "android"; token: string };
+  | { platform: "android"; token: string }
+  | { platform: "android"; kind: "hardware"; chain: string[] };
 export interface CaptureRequest {
   action: "publish";
   challengeId: string;
@@ -47,6 +48,7 @@ export interface CaptureRequest {
 }
 export const CAPTURE_MAX_BYTES = 2 * 1024 * 1024;
 export const CAPTION_MAX_LENGTH = 1000;
+export const ANDROID_HARDWARE_CHALLENGE_PREFIX = "nepeel.capture.android.v1:";
 // Stable across native and server: bind the exact bytes, caption, account, and nonce.
 export function capturePayload(
   userId: string,
