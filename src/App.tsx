@@ -32,7 +32,8 @@ import {
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import { sampleMeta, samplePosts } from "./lib/samples";
-import { getFeed, getProfile, setFollowing, setReaction } from "../shared/data";
+import { getProfile, setFollowing, setReaction } from "../shared/data";
+import { useFeed } from "./useFeed";
 import type { FeedMode, Post, Profile } from "../shared/types";
 import DeleteAccount from "./components/DeleteAccount";
 import {
@@ -160,14 +161,9 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!supabase);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
   const [mode, setMode] = useState<"all" | "following">("all");
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [loadMore, setLoadMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   const [modal, setModal] = useState<Modal>(null);
   const [detail, setDetail] = useState<Post | null>(null);
@@ -217,7 +213,6 @@ export default function App() {
       setAuthReady(true);
       if (event === "PASSWORD_RECOVERY") setModal("recovery");
       if (event === "SIGNED_OUT") {
-        setPosts([]);
         setProfile(null);
         setDetail(null);
         setReport(null);
@@ -255,48 +250,17 @@ export default function App() {
         : view === "discover"
           ? "all"
           : mode;
-  useEffect(() => {
-    if (!authReady) return;
-    if (view === "hi" || view === "about") return;
-    if (!supabase || !userId) {
-      setPosts(
-        view === "saved" ||
-          view === "profile" ||
-          (mode === "following" && view === "feed")
-          ? []
-          : samplePosts.filter((p) =>
-              `${p.caption}${p.display_name}`.includes(search),
-            ),
-      );
-      setHasMore(false);
-      setError("");
-      setLoading(false);
-      return;
-    }
-    let active = true;
-    setLoading(true);
-    setError("");
-    setPosts([]);
-    getFeed(supabase, feedMode, search, 0, postLink)
-      .then((data) => {
-        if (active) {
-          setPosts(data);
-          setHasMore(data.length === 20);
-        }
-      })
-      .catch(() => {
-        if (active)
-          setError(
-            "피드를 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요.",
-          );
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [authReady, userId, view, feedMode, search, refresh, postLink, mode]);
+  const feed = useFeed({
+    client: supabase, userId, enabled: authReady && view !== "hi" && view !== "about",
+    scope: view, mode: feedMode, search, postId: postLink, refresh,
+  });
+  const { setPosts, loading, hasMore, nextPage, loadingMore: loadMore } = feed;
+  const error = feed.error ? "피드를 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요." : "";
+  const posts = !userId && authReady
+    ? view === "saved" || view === "profile" || (mode === "following" && view === "feed")
+      ? []
+      : samplePosts.filter((post) => `${post.caption}${post.display_name}`.includes(search))
+    : feed.posts;
   const go = (next: View) => {
     setSearch("");
     setSearchDraft("");
@@ -375,28 +339,6 @@ export default function App() {
     } catch (e) {
       if (!(e instanceof DOMException && e.name === "AbortError"))
         notify("링크를 공유하지 못했어요. 다시 시도해 주세요.");
-    }
-  }
-  async function nextPage() {
-    if (!supabase || loadMore) return;
-    setLoadMore(true);
-    try {
-      const data = await getFeed(
-        supabase,
-        feedMode,
-        search,
-        posts.length,
-        postLink,
-      );
-      setPosts((old) => [
-        ...old,
-        ...data.filter((p) => !old.some((o) => o.id === p.id)),
-      ]);
-      setHasMore(data.length === 20);
-    } catch {
-      notify("다음 사진을 불러오지 못했어요.");
-    } finally {
-      setLoadMore(false);
     }
   }
   function searchSubmit(e: FormEvent) {
@@ -1003,11 +945,17 @@ export default function App() {
                     )}
                   </div>
                 )}
+                {feed.moreError && (
+                  <p className="form-error" role="alert">
+                    다음 사진을 불러오지 못했어요. 다시 눌러 시도해 주세요.
+                  </p>
+                )}
                 {hasMore && (
                   <button
                     className="load-more outline-button"
                     onClick={() => void nextPage()}
                     disabled={loadMore}
+                    aria-busy={loadMore}
                   >
                     {loadMore ? (
                       <LoaderCircle className="spin" size={16} />
