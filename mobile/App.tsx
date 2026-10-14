@@ -34,6 +34,7 @@ import type { Comment, FeedMode, Post, Profile } from "../shared/types";
 import CameraScreen from "./CameraScreen";
 import ConnectionsScreen from "./ConnectionsScreen";
 import AccountModal from "./AccountModal";
+import AuthScreen from "./AuthScreen";
 import { accountAction } from "../shared/account";
 
 export default function App() {
@@ -49,6 +50,7 @@ export default function App() {
 function Social() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(!supabase);
+  const [authInitError, setAuthInitError] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [feed, setFeed] = useState<Post[]>([]);
   const [mode, setMode] = useState<FeedMode>("all");
@@ -67,15 +69,19 @@ function Social() {
   const loadingRef = useRef(false);
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => {
+    let active = true;
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
       setSession(data.session);
       setReady(true);
-    });
+      setAuthInitError(!!error);
+    }).catch(() => { if (active) { setReady(true); setAuthInitError(true); } });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
       setReady(true);
+      if (next) setAuthInitError(false);
       if (!next) {
         setFeed([]);
         setProfile(null);
@@ -99,6 +105,7 @@ function Social() {
       if (url) deepLink({ url });
     });
     return () => {
+      active = false;
       subscription.unsubscribe();
       lifecycle.remove();
       links.remove();
@@ -157,7 +164,7 @@ function Social() {
         <ActivityIndicator />
       </View>
     );
-  if (!session) return <Auth />;
+  if (!session) return <AuthScreen initialError={authInitError} />;
   if (hi)
     return (
       <ConnectionsScreen
@@ -492,132 +499,6 @@ function Social() {
         />
       )}
     </View>
-  );
-}
-function Auth() {
-  const [signup, setSignup] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function submit() {
-    if (!supabase || busy) return;
-    if (!email.trim() || password.length < 8 || (signup && !name.trim()))
-      return setError("이메일과 8자 이상의 비밀번호, 이름을 확인해 주세요.");
-    setBusy(true);
-    setError("");
-    try {
-      const result = signup
-        ? await supabase.auth.signUp({
-            email: email.trim(),
-            password,
-            options: { data: { display_name: name.trim() } },
-          })
-        : await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
-          });
-      if (result.error) throw result.error;
-      if (signup && !result.data.session)
-        Alert.alert(
-          "메일함을 확인해 주세요.",
-          "이메일 인증 후 이 앱에서 로그인해 주세요.",
-        );
-    } catch {
-      setError(
-        "로그인 정보를 확인해 주세요. 가입했다면 이메일 인증을 먼저 완료해 주세요.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <KeyboardAvoidingView
-      style={s.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <ScrollView contentContainerStyle={s.auth}>
-        <Text style={s.brand}>
-          nepeel<Text style={s.brandDot}>●</Text>
-        </Text>
-        <View style={s.authHero}>
-          <Text style={s.bigText}>LESS FAKE.{"\n"}MORE LIFE.</Text>
-          <Text style={s.muted}>당신이 직접 살아낸 순간으로 연결돼요.</Text>
-        </View>
-        <View style={s.row}>
-          <Pressable
-            style={[s.pill, !signup && s.selected]}
-            onPress={() => {
-              setSignup(false);
-              setError("");
-            }}
-          >
-            <Text>로그인</Text>
-          </Pressable>
-          <Pressable
-            style={[s.pill, signup && s.selected]}
-            onPress={() => {
-              setSignup(true);
-              setError("");
-            }}
-          >
-            <Text>회원가입</Text>
-          </Pressable>
-        </View>
-        {signup && (
-          <>
-            <Text style={s.label}>이름</Text>
-            <TextInput
-              style={s.input}
-              value={name}
-              onChangeText={setName}
-              maxLength={40}
-              placeholder="어떻게 불러드릴까요?"
-            />
-          </>
-        )}
-        <Text style={s.label}>이메일</Text>
-        <TextInput
-          style={s.input}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          placeholder="you@example.com"
-        />
-        <Text style={s.label}>비밀번호</Text>
-        <TextInput
-          style={s.input}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          autoComplete={signup ? "new-password" : "current-password"}
-          placeholder="8자 이상"
-        />
-        {error ? <Text style={s.error}>{error}</Text> : null}
-        {!supabase && <Text style={s.error}>서비스 연결을 준비 중입니다.</Text>}
-        <Pressable
-          style={[s.primary, (busy || !supabase) && s.disabled]}
-          disabled={busy || !supabase}
-          onPress={() => void submit()}
-        >
-          {busy ? (
-            <ActivityIndicator color="#d4ff3f" />
-          ) : (
-            <Text style={s.primaryText}>
-              {signup ? "내 순간 시작하기 ↗" : "로그인 →"}
-            </Text>
-          )}
-        </Pressable>
-        <Text style={s.small}>
-          웹과 같은 계정으로 로그인할 수 있어요. 비밀번호 재설정은 웹 로그인
-          화면에서 가능합니다.
-        </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
   );
 }
 function CommentsModal({
