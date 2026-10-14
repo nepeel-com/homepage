@@ -1331,6 +1331,8 @@ main:focus {
   color: var(--muted);
   line-height: 1.9;
 }
+.auth-help { display: flex; flex-direction: column; align-items: flex-start; }
+.auth-help .auth-reset { min-height: 44px; text-align: left; }
 .auth-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;

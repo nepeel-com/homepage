@@ -137,7 +137,7 @@ export function Dialog({
       ref={ref}
       className={`dialog ${wide ? "wide" : ""}`}
       aria-label={title}
-      onCancel={close}
+      onCancel={(e) => { e.preventDefault(); close(); }}
       onClick={(e) => {
         if (e.target === e.currentTarget) close();
       }}
@@ -207,6 +207,8 @@ export default function App() {
         setAuthReady(true);
         if (authError) setNotice("로그인 상태를 확인할 수 없습니다.");
       }
+    }).catch(() => {
+      if (active) { setAuthReady(true); setNotice("로그인 상태를 불러오지 못했어요. 다시 로그인해 주세요."); }
     });
     const {
       data: { subscription },
