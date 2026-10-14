@@ -34,6 +34,10 @@ import CameraScreen from "./CameraScreen";
 import ConnectionsScreen from "./ConnectionsScreen";
 import AccountModal from "./AccountModal";
 import AuthScreen from "./AuthScreen";
+import NearbyMoments from "./NearbyMoments";
+import SpatialScreen from "./SpatialScreen";
+import PhotoPlace from "./PhotoPlace";
+import type { NearbyPhoto } from "../shared/places";
 import { accountAction } from "../shared/account";
 
 export default function App() {
@@ -53,7 +57,10 @@ function Social() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [feed, setFeed] = useState<Post[]>([]);
   const [mode, setMode] = useState<FeedMode>("all");
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [spatial, setSpatial] = useState(false);
   const [camera, setCamera] = useState(false);
+  const [reference, setReference] = useState<NearbyPhoto | null>(null);
   const [hi, setHi] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -69,12 +76,20 @@ function Social() {
   useEffect(() => {
     if (!supabase) return;
     let active = true;
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (!active) return;
-      setSession(data.session);
-      setReady(true);
-      setAuthInitError(!!error);
-    }).catch(() => { if (active) { setReady(true); setAuthInitError(true); } });
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!active) return;
+        setSession(data.session);
+        setReady(true);
+        setAuthInitError(!!error);
+      })
+      .catch(() => {
+        if (active) {
+          setReady(true);
+          setAuthInitError(true);
+        }
+      });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, next) => {
@@ -85,10 +100,13 @@ function Social() {
         setFeed([]);
         setProfile(null);
         setCamera(false);
+        setReference(null);
         setHi(false);
         setEditing(false);
         setAccountModal(null);
         setCommentsPost(null);
+        setFocusId(null);
+        setSpatial(false);
       }
     });
     const lifecycle = AppState.addEventListener("change", (state) => {
@@ -97,7 +115,10 @@ function Social() {
     });
     supabase.auth.startAutoRefresh();
     const deepLink = ({ url }: { url: string }) => {
-      if (url.startsWith("nepeel://camera")) setCamera(true);
+      if (url.startsWith("nepeel://camera")) {
+        setReference(null);
+        setCamera(true);
+      }
     };
     const links = Linking.addEventListener("url", deepLink);
     void Linking.getInitialURL().then((url) => {
@@ -118,7 +139,13 @@ function Social() {
     setLoading(true);
     setError("");
     try {
-      const data = await getFeed(supabase, mode, "", append ? feed.length : 0);
+      const data = await getFeed(
+        supabase,
+        focusId ? "all" : mode,
+        "",
+        append ? feed.length : 0,
+        focusId ?? undefined,
+      );
       if (generation !== requestGeneration.current) return;
       setFeed((old) =>
         append
@@ -145,7 +172,11 @@ function Social() {
       requestGeneration.current++;
       loadingRef.current = false;
     };
-  }, [session?.user.id, mode]);
+  }, [session?.user.id, mode, focusId]);
+  function changeMode(next: FeedMode) {
+    setFocusId(null);
+    setMode(next);
+  }
   async function action(key: string, fn: () => Promise<void>) {
     if (actionLocks.current.has(key)) return;
     actionLocks.current.add(key);
@@ -164,6 +195,18 @@ function Social() {
       </View>
     );
   if (!session) return <AuthScreen initialError={authInitError} />;
+  if (spatial)
+    return (
+      <SpatialScreen
+        key={session.user.id}
+        close={() => setSpatial(false)}
+        onOpenPost={(post) => {
+          setFeed([post]);
+          setFocusId(post.id);
+          setSpatial(false);
+        }}
+      />
+    );
   if (hi)
     return (
       <ConnectionsScreen
@@ -175,11 +218,17 @@ function Social() {
   if (camera)
     return (
       <CameraScreen
+        key={session.user.id}
         userId={session.user.id}
-        close={() => setCamera(false)}
+        reference={reference}
+        close={() => {
+          setCamera(false);
+          setReference(null);
+        }}
         done={() => {
           setCamera(false);
-          setMode("all");
+          setReference(null);
+          changeMode("all");
           void load();
           Alert.alert(
             "당신의 순간을 나눴어요.",
@@ -221,6 +270,7 @@ function Social() {
         </Pressable>
       </View>
       <FlatList
+        key={focusId ?? mode}
         data={feed}
         keyExtractor={(p) => p.id}
         refreshControl={
@@ -232,6 +282,23 @@ function Social() {
         contentContainerStyle={s.feed}
         ListHeaderComponent={
           <View style={s.intro}>
+            {focusId && (
+              <View>
+                <Text style={s.title}>공간에서 발견한 순간.</Text>
+                <Pressable
+                  style={s.button}
+                  onPress={() => {
+                    setFocusId(null);
+                    setSpatial(true);
+                  }}
+                >
+                  <Text>← 공간으로 돌아가기</Text>
+                </Pressable>
+                <Pressable style={s.button} onPress={() => changeMode("all")}>
+                  <Text>모두의 피드 보기</Text>
+                </Pressable>
+              </View>
+            )}
             <Text style={s.eyebrow}>YOUR LIFE. YOUR LENS.</Text>
             <Text style={s.title}>
               {mode === "profile"
@@ -243,7 +310,7 @@ function Social() {
             <Text style={s.muted}>
               {mode === "profile"
                 ? profile?.bio || "내가 직접 담은 순간들."
-                : "가공 없는 우리의 하루. 웹에서도 함께해요."}
+                : "직접 담은 우리의 하루. 웹에서도 함께해요."}
             </Text>
             {mode === "profile" ? (
               <View style={s.row}>
@@ -272,13 +339,13 @@ function Social() {
               <View style={s.row}>
                 <Pressable
                   style={[s.pill, mode === "all" && s.selected]}
-                  onPress={() => setMode("all")}
+                  onPress={() => changeMode("all")}
                 >
                   <Text>모두의 순간</Text>
                 </Pressable>
                 <Pressable
                   style={[s.pill, mode === "following" && s.selected]}
-                  onPress={() => setMode("following")}
+                  onPress={() => changeMode("following")}
                 >
                   <Text>팔로잉</Text>
                 </Pressable>
@@ -289,6 +356,17 @@ function Social() {
                 {error}
               </Text>
             ) : null}
+            {!focusId && (mode === "all" || mode === "following") && (
+              <NearbyMoments
+                key={session.user.id}
+                userId={session.user.id}
+                onSpace={() => setSpatial(true)}
+                onFrame={(photo) => {
+                  setReference(photo);
+                  setCamera(true);
+                }}
+              />
+            )}
           </View>
         }
         ListEmptyComponent={
@@ -415,6 +493,15 @@ function Social() {
               <Text style={s.bold}>{post.display_name} </Text>
               {post.caption}
             </Text>
+            <PhotoPlace
+              post={post}
+              userId={session.user.id}
+              onChange={(patch) =>
+                setFeed((old) =>
+                  old.map((p) => (p.id === post.id ? { ...p, ...patch } : p)),
+                )
+              }
+            />
           </View>
         )}
         ListFooterComponent={
@@ -441,7 +528,7 @@ function Social() {
         >
           <Text style={s.bold}>Hi 연결</Text>
         </Pressable>
-        <Pressable style={s.nav} onPress={() => setMode("all")}>
+        <Pressable style={s.nav} onPress={() => changeMode("all")}>
           <Text
             style={mode === "all" || mode === "following" ? s.bold : s.muted}
           >
@@ -455,10 +542,10 @@ function Social() {
         >
           <Text style={s.plus}>＋</Text>
         </Pressable>
-        <Pressable style={s.nav} onPress={() => setMode("saved")}>
+        <Pressable style={s.nav} onPress={() => changeMode("saved")}>
           <Text style={mode === "saved" ? s.bold : s.muted}>저장</Text>
         </Pressable>
-        <Pressable style={s.nav} onPress={() => setMode("profile")}>
+        <Pressable style={s.nav} onPress={() => changeMode("profile")}>
           <Text style={mode === "profile" ? s.bold : s.muted}>프로필</Text>
         </Pressable>
       </View>
@@ -509,11 +596,22 @@ function CommentsModal({
   userId: string;
   close: () => void;
 }) {
-  const thread = useComments({ client: supabase, userId, postId: post.id, enabled: true, makeId: randomUUID });
+  const thread = useComments({
+    client: supabase,
+    userId,
+    postId: post.id,
+    enabled: true,
+    makeId: randomUUID,
+  });
   const { comments, body, setBody, posting: busy } = thread;
   const list = useRef<FlatList>(null);
   return (
-    <Modal animationType="slide" onRequestClose={() => { if (!busy) close(); }}>
+    <Modal
+      animationType="slide"
+      onRequestClose={() => {
+        if (!busy) close();
+      }}
+    >
       <SafeAreaView style={s.safe}>
         <KeyboardAvoidingView
           style={s.flex}
@@ -529,15 +627,63 @@ function CommentsModal({
             ref={list}
             contentContainerStyle={s.feed}
             data={comments}
-            keyExtractor={comment => comment.id}
-            renderItem={({ item }) => <View style={s.comment}><Text style={s.bold}>{item.profiles.display_name}</Text><Text>{item.body}</Text></View>}
-            ListHeaderComponent={<View><Text style={s.muted}>최신 댓글부터 보여요.</Text>{thread.loading && <ActivityIndicator accessibilityLabel="댓글을 불러오는 중" />}</View>}
-            ListEmptyComponent={!thread.loading && !thread.loadError ? <Text style={s.muted}>첫 번째 이야기를 남겨보세요.</Text> : null}
-            ListFooterComponent={thread.hasMore ? <Pressable style={s.button} accessibilityRole="button" disabled={thread.loadingMore} onPress={() => void thread.loadMore()}><Text>{thread.loadingMore ? "이전 댓글을 불러오는 중…" : "이전 댓글 더 보기"}</Text></Pressable> : null}
+            keyExtractor={(comment) => comment.id}
+            renderItem={({ item }) => (
+              <View style={s.comment}>
+                <Text style={s.bold}>{item.profiles.display_name}</Text>
+                <Text>{item.body}</Text>
+              </View>
+            )}
+            ListHeaderComponent={
+              <View>
+                <Text style={s.muted}>최신 댓글부터 보여요.</Text>
+                {thread.loading && (
+                  <ActivityIndicator accessibilityLabel="댓글을 불러오는 중" />
+                )}
+              </View>
+            }
+            ListEmptyComponent={
+              !thread.loading && !thread.loadError ? (
+                <Text style={s.muted}>첫 번째 이야기를 남겨보세요.</Text>
+              ) : null
+            }
+            ListFooterComponent={
+              thread.hasMore ? (
+                <Pressable
+                  style={s.button}
+                  accessibilityRole="button"
+                  disabled={thread.loadingMore}
+                  onPress={() => void thread.loadMore()}
+                >
+                  <Text>
+                    {thread.loadingMore
+                      ? "이전 댓글을 불러오는 중…"
+                      : "이전 댓글 더 보기"}
+                  </Text>
+                </Pressable>
+              ) : null
+            }
           />
-          {thread.loadError && <View><Text style={s.error} accessibilityRole="alert">댓글을 불러오지 못했어요.</Text><Pressable style={s.button} onPress={thread.reload}><Text>다시 시도</Text></Pressable></View>}
-          {thread.moreError && <Text style={s.error} accessibilityRole="alert">이전 댓글을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
-          {thread.postError && <Text style={s.error} accessibilityRole="alert">댓글을 게시하지 못했어요. 작성한 내용으로 다시 시도해 주세요.</Text>}
+          {thread.loadError && (
+            <View>
+              <Text style={s.error} accessibilityRole="alert">
+                댓글을 불러오지 못했어요.
+              </Text>
+              <Pressable style={s.button} onPress={thread.reload}>
+                <Text>다시 시도</Text>
+              </Pressable>
+            </View>
+          )}
+          {thread.moreError && (
+            <Text style={s.error} accessibilityRole="alert">
+              이전 댓글을 불러오지 못했어요. 다시 시도해 주세요.
+            </Text>
+          )}
+          {thread.postError && (
+            <Text style={s.error} accessibilityRole="alert">
+              댓글을 게시하지 못했어요. 작성한 내용으로 다시 시도해 주세요.
+            </Text>
+          )}
           <View style={s.commentInput}>
             <TextInput
               style={[s.input, s.flex]}
@@ -553,9 +699,13 @@ function CommentsModal({
               disabled={busy || thread.loading || !body.trim()}
               accessibilityRole="button"
               accessibilityLabel="댓글 게시"
-              accessibilityState={{ busy, disabled: busy || thread.loading || !body.trim() }}
+              accessibilityState={{
+                busy,
+                disabled: busy || thread.loading || !body.trim(),
+              }}
               onPress={async () => {
-                if (await thread.submit()) list.current?.scrollToOffset({ offset: 0, animated: true });
+                if (await thread.submit())
+                  list.current?.scrollToOffset({ offset: 0, animated: true });
               }}
             >
               <Text>{busy ? "게시 중…" : "게시"}</Text>

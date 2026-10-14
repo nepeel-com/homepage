@@ -20,13 +20,14 @@ export default {
     },
     android: {
       package: "com.nepeel.app",
-      versionCode: 2,
+      versionCode: 3,
       blockedPermissions: [
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
       ],
     },
     plugins: [
@@ -40,6 +41,16 @@ export default {
         },
       ],
       "expo-secure-store",
+      [
+        "expo-location",
+        {
+          locationWhenInUsePermission:
+            "촬영 장소를 붙이고 근처 친구 사진을 찾기 위해 앱 사용 중 위치를 확인합니다.",
+          isIosBackgroundLocationEnabled: false,
+          isAndroidBackgroundLocationEnabled: false,
+          isAndroidForegroundServiceEnabled: false,
+        },
+      ],
     ],
   },
 };
