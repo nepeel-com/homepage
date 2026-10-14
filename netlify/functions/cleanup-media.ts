@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { cleanupMedia } from "../../server/account.js";
-import { required } from "../../server/integrity.js";
+import { required } from "../../server/env.js";
 
 // Netlify does not expose scheduled functions as public request endpoints.
 export const config = { schedule: "0 3 * * *" };
