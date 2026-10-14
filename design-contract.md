@@ -4,6 +4,7 @@ The user's latest brief requests an actual web + native SNS, with Supabase and a
 
 - Preserve nepeel's black, paper and lime identity.
 - Build a readable, responsive photo feed with account and social actions.
+- Keep the original left navigation and right supporting cards. Group them closely with the main content inside one centered frame; leave expandable space outside both edges for possible future advertising. Do not move navigation above the feed or turn the desktop experience into a lone column.
 - Share auth and data with an Expo iOS/Android camera app.
 - Deny direct client photo upload; use a server proof-verification boundary.
 - Public stock photos are labelled examples, separate from authenticated member content.

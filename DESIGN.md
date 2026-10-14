@@ -18,7 +18,9 @@ Use 16px labelled form controls. Large HI typography is expressive; do not conde
 
 ## 5. Layout & Composition
 
-Desktop: fixed 232px navigation, photo feed, 280px supporting rail. At ≤1050px the right rail disappears; at ≤760px navigation becomes a bottom bar. Primary photos keep a stable aspect ratio. Homepage introduction is shorter on mobile to bring the feed into view. Discover uses a two-column image grid. Profile and saved screens reuse the feed.
+Desktop: navigation, feed and supporting rail form one centered 1180px frame. The fixed 208px navigation is aligned to the frame's left edge, not the viewport edge. The content uses 28px insets, a 28px column gap and a 248px supporting rail, leaving a 640px main column at full frame width. Extra viewport width belongs outside this group on both sides; never create an expanding gap between navigation and main content. At ≤1050px use a centered 860px frame with 184px navigation and hide the right rail; at ≤760px navigation becomes a bottom bar. Primary photos keep a stable aspect ratio. Homepage introduction is shorter on mobile to bring the feed into view. Discover uses a two-column image grid. Profile, saved and Hi screens reuse the frame.
+
+The outside gutters are intentionally empty and can later hold advertising or campaigns. No ads, tracking or placeholder cards are added now. Future ad placements must stay outside the service frame and collapse when the viewport cannot fit them; they must not compress or separate the existing three columns.
 
 Hi contains an introduction, private preferences, one send action, inbox and conversation. Mobile navigation has at most five items; saved photos remain accessible elsewhere. Do not invent conversations for empty states.
 
