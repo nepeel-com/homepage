@@ -15,6 +15,7 @@ import { updateProfile } from "../../shared/data";
 import { useComments } from "../../shared/useComments";
 import type { Post, Profile } from "../../shared/types";
 import { reportPost, reportReasons } from "../../shared/account";
+import PhotoPlace from "./PhotoPlace";
 
 export { AuthDialog } from "./AuthDialog";
 export function CameraDialog({ close }: { close: () => void }) {
@@ -40,7 +41,7 @@ export function CameraDialog({ close }: { close: () => void }) {
           <span>2</span>앱 안에서 지금의 순간 촬영
         </li>
         <li>
-          <span>3</span>촬영 확인 후 웹·앱에 함께 게시
+          <span>3</span>색감과 장소를 고르고 웹·앱에 함께 게시
         </li>
       </ol>
       <div className="info-box">
@@ -127,6 +128,7 @@ export function PostDialog({
   login,
   onComment,
   client = supabase,
+  onDetails,
 }: {
   post: Post;
   actions: ReactNode;
@@ -135,12 +137,25 @@ export function PostDialog({
   login: () => void;
   onComment: () => void;
   client?: SupabaseClient | null;
+  onDetails?: (patch: Partial<Post>) => void;
 }) {
-  const thread = useComments({ client, userId, postId: post.id, enabled: !post.sample, makeId: () => crypto.randomUUID() });
+  const thread = useComments({
+    client,
+    userId,
+    postId: post.id,
+    enabled: !post.sample,
+    makeId: () => crypto.randomUUID(),
+  });
   const { comments, body, setBody, posting: pending, loading } = thread;
   const commentsBox = useRef<HTMLDivElement>(null);
   return (
-    <Dialog title={`${post.display_name}의 순간`} close={() => { if (!pending) close(); }} wide>
+    <Dialog
+      title={`${post.display_name}의 순간`}
+      close={() => {
+        if (!pending) close();
+      }}
+      wide
+    >
       <div className="detail-layout">
         <img
           className="detail-image"
@@ -156,7 +171,10 @@ export function PostDialog({
             </p>
           </div>
           {actions}
-          {!post.sample && <small className="muted">최신 댓글부터 보여요.</small>}
+          <PhotoPlace post={post} userId={userId} onChange={onDetails} />
+          {!post.sample && (
+            <small className="muted">최신 댓글부터 보여요.</small>
+          )}
           <div className="comments" ref={commentsBox} aria-busy={loading}>
             {loading ? (
               <p className="muted" role="status">
@@ -172,25 +190,50 @@ export function PostDialog({
                   </p>
                 </div>
               ))
-            ) : !thread.loadError && (
-              <p className="muted">
-                {post.sample
-                  ? "샘플 사진이에요. 가입하고 진짜 순간에 이야기를 남겨보세요."
-                  : "첫 번째 이야기를 남겨보세요."}
-              </p>
+            ) : (
+              !thread.loadError && (
+                <p className="muted">
+                  {post.sample
+                    ? "샘플 사진이에요. 가입하고 진짜 순간에 이야기를 남겨보세요."
+                    : "첫 번째 이야기를 남겨보세요."}
+                </p>
+              )
             )}
           </div>
           {thread.loadError && (
             <p className="form-error" role="alert">
               댓글을 불러오지 못했어요.{" "}
-              <button className="text-button" type="button" onClick={thread.reload}>다시 시도</button>
+              <button
+                className="text-button"
+                type="button"
+                onClick={thread.reload}
+              >
+                다시 시도
+              </button>
             </p>
           )}
-          {thread.moreError && <p className="form-error" role="alert">이전 댓글을 불러오지 못했어요. 다시 시도해 주세요.</p>}
-          {thread.hasMore && <button className="outline-button full" disabled={thread.loadingMore} aria-busy={thread.loadingMore} onClick={() => void thread.loadMore()}>
-            {thread.loadingMore ? "이전 댓글을 불러오는 중…" : "이전 댓글 더 보기"}
-          </button>}
-          {thread.postError && <p className="form-error" role="alert">댓글을 남기지 못했어요. 작성한 내용으로 다시 시도해 주세요.</p>}
+          {thread.moreError && (
+            <p className="form-error" role="alert">
+              이전 댓글을 불러오지 못했어요. 다시 시도해 주세요.
+            </p>
+          )}
+          {thread.hasMore && (
+            <button
+              className="outline-button full"
+              disabled={thread.loadingMore}
+              aria-busy={thread.loadingMore}
+              onClick={() => void thread.loadMore()}
+            >
+              {thread.loadingMore
+                ? "이전 댓글을 불러오는 중…"
+                : "이전 댓글 더 보기"}
+            </button>
+          )}
+          {thread.postError && (
+            <p className="form-error" role="alert">
+              댓글을 남기지 못했어요. 작성한 내용으로 다시 시도해 주세요.
+            </p>
+          )}
           <form
             className="comment-form"
             onSubmit={async (e) => {
