@@ -29,7 +29,7 @@ interface FeedState {
 }
 interface RequestScope {
   key: string;
-  busy: boolean;
+  phase: "idle" | "initial" | "more" | "refresh";
   cursor: FeedCursor | null;
   more: boolean;
   updatedAt: number;
@@ -48,7 +48,7 @@ const empty = (key: string): FeedState => ({
 });
 const idle = (): RequestScope => ({
   key: "",
-  busy: false,
+  phase: "idle",
   cursor: null,
   more: false,
   updatedAt: 0,
@@ -79,7 +79,7 @@ export function useFeed({
   useEffect(() => {
     const current: RequestScope = {
       key,
-      busy: true,
+      phase: "initial",
       cursor: null,
       more: false,
       updatedAt: 0,
@@ -90,7 +90,7 @@ export function useFeed({
       if (request.current.key === key) request.current = idle();
     };
     if (!client || !userId || !enabled) {
-      current.busy = false;
+      current.phase = "idle";
       setState(empty(key));
       return invalidate;
     }
@@ -112,7 +112,7 @@ export function useFeed({
         if (valid()) setState({ ...empty(key), error: true });
       })
       .finally(() => {
-        if (valid()) current.busy = false;
+        if (valid()) current.phase = "idle";
       });
     return invalidate;
   }, [client, key, userId, enabled, mode, search, postId]);
@@ -142,11 +142,11 @@ export function useFeed({
       !userId ||
       !enabled ||
       current.key !== key ||
-      current.busy ||
+      current.phase !== "idle" ||
       !current.more
     )
       return;
-    current.busy = true;
+    current.phase = "more";
     const valid = () => request.current === current;
     setState((old) =>
       old.key === key ? { ...old, loadingMore: true, moreError: false } : old,
@@ -181,7 +181,7 @@ export function useFeed({
         );
     } finally {
       if (valid()) {
-        current.busy = false;
+        current.phase = "idle";
         setState((old) =>
           old.key === key ? { ...old, loadingMore: false } : old,
         );
@@ -197,11 +197,12 @@ export function useFeed({
         !userId ||
         !enabled ||
         previous.key !== key ||
-        previous.busy ||
+        previous.phase === "initial" ||
+        previous.phase === "refresh" ||
         (maxAge > 0 && Date.now() - previous.updatedAt < maxAge)
       )
         return false;
-      const current = { ...previous, busy: true };
+      const current: RequestScope = { ...previous, phase: "refresh" };
       request.current = current;
       const valid = () => request.current === current;
       setState((old) =>
@@ -209,6 +210,7 @@ export function useFeed({
           ? {
               ...old,
               refreshing: true,
+              loadingMore: false,
               error: false,
               refreshError: false,
               moreError: false,
@@ -237,7 +239,7 @@ export function useFeed({
         return false;
       } finally {
         if (valid()) {
-          current.busy = false;
+          current.phase = "idle";
           setState((old) =>
             old.key === key ? { ...old, refreshing: false } : old,
           );
