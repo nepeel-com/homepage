@@ -1,0 +1,19 @@
+{
+  "googleVerifier": {
+    "revision": "621149c4ebaeeea844d6f43098687c73c4d370a3",
+    "url": "https://codeload.github.com/android/keyattestation/tar.gz/621149c4ebaeeea844d6f43098687c73c4d370a3",
+    "sha256": "c6c29929d42084e5d6efa6cf44a19ad05d72c90620804189cf9c69614f937122",
+    "bytes": 167484
+  },
+  "gradleSha256": "5b9c5eb3f9fc2c94abaea57d90bd78747ca117ddbbf96c859d3741181a12bf2a",
+  "linuxJdk": {
+    "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+    "sha256": "ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94",
+    "bytes": 207473347
+  },
+  "linuxJre": {
+    "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jre_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+    "sha256": "2413149700df0f7d440500a84a8f764c535f21e5a5e87d38328b64eec2c5b500",
+    "bytes": 52059408
+  }
+}
