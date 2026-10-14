@@ -3,16 +3,19 @@ import { verifyAssertion, verifyAttestation } from "node-app-attest";
 import cbor from "cbor";
 import { X509Certificate } from "node:crypto";
 import { ApiError, sha256, validateAndroidVerdict } from "./validation.js";
+import { androidHardwareIntegrity } from "./android-hardware.js";
+import { textField } from "./validation.js";
+import { required } from "./env.js";
 
-export function required(name: string) {
-  const value = process.env[name];
-  if (!value)
-    throw new ApiError(
-      503,
-      "앱 인증 연결을 준비 중입니다. 잠시 후 다시 시도해 주세요.",
-    );
-  return value;
+export async function androidCaptureProof(proof: Record<string, unknown>, payload: string) {
+  const keys = Object.keys(proof).sort().join(",");
+  if (proof.kind === "hardware" && keys === "chain,kind,platform")
+    return androidHardwareIntegrity(proof.chain, payload);
+  if (proof.kind === undefined && keys === "platform,token")
+    return androidIntegrity(textField(proof.token, 30_000, "촬영 인증"), payload);
+  throw new ApiError(403, "공식 앱에서 다시 촬영해 주세요.");
 }
+
 export function iosRegistration(
   attestation: string,
   keyId: string,

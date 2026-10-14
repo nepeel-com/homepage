@@ -4,7 +4,7 @@ import {
   type User,
 } from "@supabase/supabase-js";
 import { ApiError } from "./validation.js";
-import { required } from "./integrity.js";
+import { required } from "./env.js";
 
 export async function cleanupMedia(client: SupabaseClient, userId?: string) {
   let query = client

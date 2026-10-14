@@ -10,11 +10,11 @@ import {
   uuid,
 } from "../server/validation.js";
 import {
-  androidIntegrity,
+  androidCaptureProof,
   iosAssertion,
   iosRegistration,
-  required,
 } from "../server/integrity.js";
+import { required } from "./env.js";
 
 export interface CaptureRequest {
   method?: string;
@@ -165,10 +165,7 @@ export default async function handler(
         p_next: verified.signCount,
       };
     } else if (proof?.platform === "android") {
-      await androidIntegrity(
-        textField(proof.token, 30_000, "촬영 인증"),
-        payload,
-      );
+      await androidCaptureProof(proof, payload);
     } else {
       throw new ApiError(403, "공식 nepeel 앱에서 촬영해 주세요.");
     }
