@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
-  ArrowRight,
   ArrowUpRight,
   Camera,
   Check,
-  LoaderCircle,
   Send,
   ShieldCheck,
   Smartphone,
@@ -16,179 +14,7 @@ import { addComment, getComments, updateProfile } from "../../shared/data";
 import type { Comment, Post, Profile } from "../../shared/types";
 import { reportPost, reportReasons } from "../../shared/account";
 
-export function AuthDialog({
-  close,
-  onDone,
-}: {
-  close: () => void;
-  onDone: () => void;
-}) {
-  const [mode, setMode] = useState<"login" | "signup" | "reset">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!supabase || pending) return;
-    setPending(true);
-    setError("");
-    setMessage("");
-    try {
-      if (mode === "reset") {
-        const { error: e } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: location.origin,
-        });
-        if (e) throw e;
-        setMessage("가입된 이메일이라면 비밀번호 재설정 링크를 보내드려요.");
-      } else if (mode === "signup") {
-        const { data, error: e } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { display_name: name.trim() },
-            emailRedirectTo: location.origin,
-          },
-        });
-        if (e) throw e;
-        if (data.session) onDone();
-        else
-          setMessage(
-            "메일함을 확인해 주세요. 인증 링크를 누르면 가입이 완료됩니다.",
-          );
-      } else {
-        const { error: e } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (e) throw e;
-        onDone();
-      }
-    } catch (e) {
-      setError(readableError(e));
-    } finally {
-      setPending(false);
-    }
-  }
-  const change = (next: typeof mode) => {
-    setMode(next);
-    setError("");
-    setMessage("");
-  };
-  return (
-    <Dialog
-      title={
-        mode === "signup"
-          ? "당신의 진짜 세상을 만나볼까요?"
-          : mode === "reset"
-            ? "비밀번호 다시 설정하기"
-            : "다시 만나 반가워요."
-      }
-      close={close}
-    >
-      <p className="muted">하나의 계정으로 웹과 앱의 순간을 함께해요.</p>
-      {mode !== "reset" && (
-        <div className="auth-tabs">
-          <button
-            className={mode === "login" ? "selected" : ""}
-            onClick={() => change("login")}
-          >
-            로그인
-          </button>
-          <button
-            className={mode === "signup" ? "selected" : ""}
-            onClick={() => change("signup")}
-          >
-            회원가입
-          </button>
-        </div>
-      )}
-      <form className="form-stack" onSubmit={(e) => void submit(e)}>
-        {mode === "signup" && (
-          <label>
-            이름
-            <input
-              autoComplete="nickname"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={40}
-              required
-              placeholder="어떻게 불러드릴까요?"
-            />
-          </label>
-        )}
-        <label>
-          이메일
-          <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="you@example.com"
-          />
-        </label>
-        {mode !== "reset" && (
-          <label>
-            비밀번호
-            <input
-              type="password"
-              autoComplete={
-                mode === "signup" ? "new-password" : "current-password"
-              }
-              minLength={mode === "signup" ? 8 : undefined}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="8자 이상 입력해 주세요"
-            />
-          </label>
-        )}
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        {message && (
-          <p className="form-success" role="status">
-            {message}
-          </p>
-        )}
-        {!supabase && (
-          <div className="info-box">
-            서비스 연결을 준비 중이에요. 지금은 샘플 피드를 둘러볼 수 있어요.
-          </div>
-        )}
-        <button
-          className="dark-button full"
-          disabled={pending || !supabase || (mode === "signup" && !name.trim())}
-        >
-          {pending ? (
-            <LoaderCircle className="spin" size={18} />
-          ) : mode === "signup" ? (
-            "내 순간 시작하기"
-          ) : mode === "reset" ? (
-            "재설정 링크 받기"
-          ) : (
-            "로그인"
-          )}
-          <ArrowRight size={17} />
-        </button>
-      </form>
-      <button
-        className="text-button auth-reset"
-        onClick={() => change(mode === "reset" ? "login" : "reset")}
-      >
-        {mode === "reset" ? "로그인으로 돌아가기" : "비밀번호를 잊으셨나요?"}
-      </button>
-      <div className="auth-foot">
-        <ShieldCheck size={14} /> 내 일상은 로그인한 멤버에게만 공유돼요.
-      </div>
-    </Dialog>
-  );
-}
+export { AuthDialog } from "./AuthDialog";
 export function CameraDialog({ close }: { close: () => void }) {
   return (
     <Dialog title="순간은 앱에서 시작돼요." close={close}>
@@ -290,52 +116,7 @@ export function EditProfile({
     </Dialog>
   );
 }
-export function Recovery({ close }: { close: () => void }) {
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
-  return (
-    <Dialog title="새 비밀번호 설정" close={close}>
-      <form
-        className="form-stack"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (pending) return;
-          setPending(true);
-          try {
-            const { error: e2 } = await supabase!.auth.updateUser({ password });
-            if (e2) setError(readableError(e2));
-            else close();
-          } catch {
-            setError("연결을 확인해 주세요.");
-          } finally {
-            setPending(false);
-          }
-        }}
-      >
-        <label>
-          새 비밀번호
-          <input
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </label>
-        {error && (
-          <p role="alert" className="form-error">
-            {error}
-          </p>
-        )}
-        <button className="dark-button" disabled={pending}>
-          비밀번호 저장
-        </button>
-      </form>
-    </Dialog>
-  );
-}
+export { Recovery } from "./Recovery";
 export function PostDialog({
   post,
   actions,
