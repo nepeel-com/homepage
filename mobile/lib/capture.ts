@@ -4,7 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
 import { File } from "expo-file-system";
 import { supabase } from "./supabase";
-import { CAPTURE_MAX_BYTES, capturePayload } from "../../shared/types";
+import { ANDROID_HARDWARE_CHALLENGE_PREFIX, CAPTURE_MAX_BYTES, capturePayload } from "../../shared/types";
 import type { CaptureProof, Challenge } from "../../shared/types";
 
 export async function captureApi<T>(body: object): Promise<T> {
@@ -68,6 +68,11 @@ export async function prepareCamera(userId: string): Promise<string | null> {
     return keyId;
   }
   if (Platform.OS === "android") {
+    if (process.env.EXPO_PUBLIC_ANDROID_ATTESTATION === "hardware") {
+      if (!await AppIntegrity.isHardwareAttestationSupportedAsync())
+        throw new Error("이 Android 기기는 촬영 인증을 지원하지 않습니다.");
+      return null;
+    }
     const project = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_PROJECT_NUMBER;
     if (!project) throw new Error("Android 앱 인증 연결을 준비 중입니다.");
     if (!androidPrepared) {
@@ -112,22 +117,32 @@ export async function publishCapture(
       Crypto.CryptoDigestAlgorithm.SHA256,
       payload,
     );
-    let token: string;
-    try {
-      token = await AppIntegrity.requestIntegrityCheckAsync(requestHash);
-    } catch (error) {
-      if (
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "ERR_APP_INTEGRITY_PROVIDER_INVALID"
-      ) {
-        androidPrepared = false;
-        await prepareCamera(userId);
+    if (process.env.EXPO_PUBLIC_ANDROID_ATTESTATION === "hardware") {
+      // A fresh key binds this exact account, nonce, image and caption. Reuse only the alias.
+      const alias = "nepeel.capture.v1";
+      try {
+        await AppIntegrity.generateHardwareAttestedKeyAsync(alias, ANDROID_HARDWARE_CHALLENGE_PREFIX + requestHash);
+        const chain = await AppIntegrity.getAttestationCertificateChainAsync(alias);
+        proof = { platform: "android", kind: "hardware", chain };
+      } catch {
+        throw new Error("기기 촬영 인증을 만들지 못했습니다. 휴대폰의 보안 업데이트와 인터넷 연결을 확인한 뒤 다시 시도해 주세요.");
+      }
+    } else {
+      let token: string;
+      try {
         token = await AppIntegrity.requestIntegrityCheckAsync(requestHash);
-      } else throw error;
+      } catch (error) {
+        if (
+          error && typeof error === "object" && "code" in error &&
+          error.code === "ERR_APP_INTEGRITY_PROVIDER_INVALID"
+        ) {
+          androidPrepared = false;
+          await prepareCamera(userId);
+          token = await AppIntegrity.requestIntegrityCheckAsync(requestHash);
+        } else throw error;
+      }
+      proof = { platform: "android", token };
     }
-    proof = { platform: "android", token };
   } else throw new Error("공식 앱에서 다시 촬영해 주세요.");
   return captureApi<{ id: string }>({
     action: "publish",
