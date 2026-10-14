@@ -63,6 +63,22 @@ export interface DirectMessage {
   client_id: string;
   created_at: string;
 }
+export interface BlockedConnection {
+  connection_id: string;
+  peer_id: string;
+  display_name: string;
+  username: string;
+  created_at: string;
+}
+export async function blockedConnections(
+  client: SupabaseClient,
+  before?: BlockedConnection,
+): Promise<BlockedConnection[]> {
+  return (await connectAction(client, "get_blocked_connections", {
+    p_before: before?.created_at ?? null,
+    p_before_id: before?.peer_id ?? null,
+  })) ?? [];
+}
 export async function preferences(client: SupabaseClient, userId: string) {
   const { data, error } = await client
     .from("connection_preferences")

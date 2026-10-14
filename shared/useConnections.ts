@@ -3,12 +3,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { refreshInbox, refreshTimeline } from "./connection-cache";
 import {
   connections,
+  blockedConnections,
   connectAction,
   messages,
   preferences,
   type Connection,
   type ConnectionPreferences,
   type DirectMessage,
+  type BlockedConnection,
 } from "./connect";
 
 // Mounted only on the Hi surface. No background polling or public presence broadcast.
@@ -28,6 +30,13 @@ export function useConnections(
   const [more, setMore] = useState(false);
   const [older, setOlder] = useState(false);
   const [liveState, setLiveState] = useState(false);
+  const [blocksOpen, setBlocksOpen] = useState(false);
+  const [blocks, setBlocks] = useState<BlockedConnection[]>([]);
+  const [blocksMore, setBlocksMore] = useState(false);
+  const [blocksLoading, setBlocksLoading] = useState(false);
+  const blocksOpenRef = useRef(blocksOpen);
+  blocksOpenRef.current = blocksOpen;
+  const blocksGeneration = useRef(0);
   const lock = useRef(false);
   const mounted = useRef(true);
   const generation = useRef(0);
@@ -80,6 +89,25 @@ export function useConnections(
     setHistory(result.rows);
     setOlder(result.older);
   }, [client]);
+  const refreshBlocks = useCallback(async () => {
+    if (!client || !userId) return;
+    const request = ++blocksGeneration.current;
+    setBlocksLoading(true);
+    try {
+      const rows = await blockedConnections(client);
+      if (!mounted.current || request !== blocksGeneration.current) return;
+      setBlocks(rows);
+      setBlocksMore(rows.length === 30);
+    } finally {
+      if (mounted.current && request === blocksGeneration.current) setBlocksLoading(false);
+    }
+  }, [client, userId]);
+  useEffect(() => {
+    if (!blocksOpen || !active) return;
+    let disposed = false;
+    void refreshBlocks().catch(e => { if (!disposed) setError(e); });
+    return () => { disposed = true; blocksGeneration.current++; };
+  }, [blocksOpen, active, refreshBlocks]);
   useEffect(() => {
     if (!client || !userId || !active) return;
     let disposed = false;
@@ -108,7 +136,7 @@ export function useConnections(
     const changed = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        Promise.all([refresh(), refreshMessages()]).catch((e) => {
+        Promise.all([refresh(), refreshMessages(), blocksOpenRef.current ? refreshBlocks() : undefined]).catch((e) => {
           if (!disposed) setError(e);
         });
       }, 180);
@@ -148,7 +176,7 @@ export function useConnections(
       setLiveState(false);
       void client.removeChannel(channel);
     };
-  }, [client, userId, active, refresh, refreshMessages]);
+  }, [client, userId, active, refresh, refreshMessages, refreshBlocks]);
   useEffect(() => {
     let disposed = false;
     setHistory([]);
@@ -191,6 +219,7 @@ export function useConnections(
     try {
       await refresh();
       await refreshMessages();
+      if (blocksOpenRef.current) await refreshBlocks();
     } catch {
       if (mounted.current) setError(new Error("REFRESH_FAILED"));
     }
@@ -216,7 +245,17 @@ export function useConnections(
     ]);
     setOlder(next.length === 40);
   }
+  async function loadMoreBlocks() {
+    if (!client || !blocks.length) return;
+    const request = blocksGeneration.current;
+    const next = await blockedConnections(client, blocks[blocks.length - 1]);
+    if (!mounted.current || request !== blocksGeneration.current) return;
+    setBlocks(old => [...old, ...next.filter(n => !old.some(i => i.peer_id === n.peer_id))]);
+    setBlocksMore(next.length === 30);
+  }
   return {
+    blocksOpen, setBlocksOpen, blocks, blocksMore, blocksLoading,
+    refreshBlocks, loadMoreBlocks,
     prefs,
     setPrefs,
     items,
