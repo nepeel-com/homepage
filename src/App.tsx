@@ -36,6 +36,7 @@ import { getProfile, setFollowing, setReaction } from "../shared/data";
 import { useFeed } from "./useFeed";
 import type { FeedMode, Post, Profile } from "../shared/types";
 import DeleteAccount from "./components/DeleteAccount";
+import PhotoPlace from "./components/PhotoPlace";
 import {
   About,
   AuthDialog,
@@ -539,7 +540,7 @@ export default function App() {
                         <p>평범해서 더 소중한, 우리의 오늘.</p>
                       </div>
                       <span className="outline-stamp">
-                        NO FILTER.
+                        YOUR LENS.
                         <br />
                         <b>JUST LIFE.</b>
                       </span>
@@ -931,6 +932,7 @@ export default function App() {
                             <p>
                               <b>{post.display_name}</b> {post.caption}
                             </p>
+                            <PhotoPlace post={post} userId={userId} onChange={patch=>patchPost(post.id,patch)}/>
                             <button
                               className="comment-link"
                               onClick={() => setDetail(post)}
@@ -1165,6 +1167,7 @@ export default function App() {
           actions={actions(detail)}
           userId={userId}
           close={() => setDetail(null)}
+          onDetails={patch=>patchPost(detail.id,patch)}
           login={() => {
             setDetail(null);
             setModal("auth");
