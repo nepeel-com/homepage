@@ -19,6 +19,7 @@ test("account cascade queues files durably and revoked members cannot read with 
       "202610140002_capture_hardening.sql",
       "202610140003_hi_connections.sql",
       "202610140004_account_cleanup.sql",
+      "202610140005_connection_unblock.sql",
     ])
       await db.exec(
         await readFile(

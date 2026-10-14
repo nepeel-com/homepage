@@ -19,6 +19,7 @@ before(async () => {
     "202610140002_capture_hardening.sql",
     "202610140003_hi_connections.sql",
     "202610140004_account_cleanup.sql",
+    "202610140005_connection_unblock.sql",
   ])
     await db.exec(
       await readFile(
@@ -300,6 +301,74 @@ test("blocking prevents delivery/read/rematching and creates a private report", 
     1,
   );
 });
+test("unblocking removes only the caller's block; mutual blocks keep messages private", async () => {
+  const id = await match();
+  await user(b, "select public.respond_to_hi($1,true)", [id]);
+  await user(a, "select public.block_connection($1,'spam')", [id]);
+  assert.equal((await user(b, "select * from public.get_blocked_connections()")).length, 0);
+  assert.equal((await user(a, "select * from public.get_blocked_connections()")).length, 1);
+  await assert.rejects(user(c, "select public.unblock_connection($1)", [id]), /NOT_FOUND/);
+  // A person who did not create the block cannot undo the other person's choice.
+  await user(b, "select public.unblock_connection($1)", [id]);
+  assert.equal((await user(a, "select * from public.get_direct_messages($1)", [id])).length, 0);
+  await user(b, "select public.block_connection($1)", [id]);
+  await user(a, "select public.unblock_connection($1)", [id]);
+  assert.equal((await user(a, "select * from public.get_blocked_connections()")).length, 0);
+  assert.equal((await user(b, "select * from public.get_blocked_connections()")).length, 1);
+  await assert.rejects(user(a, "select public.send_direct_message($1,$2,$3)", msg(id)), /REQUEST_CLOSED/);
+  await user(b, "select public.unblock_connection($1)", [id]);
+  assert.equal((await user(a, "select * from public.get_direct_messages($1)", [id])).length, 1);
+  await user(a, "select public.send_direct_message($1,$2,$3)", msg(id));
+  assert.equal((await db.query("select * from public.connection_reports")).rows.length, 1);
+  await assert.rejects(user(a, "delete from public.connection_blocks"), /permission denied/);
+});
+
+test("unblocking preserves invitation expiry, acceptance and request quotas", async () => {
+  const id = await match();
+  const original = (await db.query("select created_at,expires_at from public.connections where id=$1", [id])).rows;
+  await user(a, "select public.block_connection($1)", [id]);
+  await user(a, "select public.unblock_connection($1)", [id]);
+  assert.deepEqual((await db.query("select created_at,expires_at from public.connections where id=$1", [id])).rows, original);
+  await assert.rejects(user(a, "select public.send_direct_message($1,$2,$3)", msg(id)), /REQUEST_CLOSED/);
+  await assert.rejects(hi(), /HI_COOLDOWN/);
+  await user(a, "select public.block_connection($1)", [id]);
+  await db.query("update public.connections set expires_at=now()-interval '1 second' where id=$1", [id]);
+  await user(a, "select public.unblock_connection($1)", [id]);
+  await assert.rejects(user(b, "select public.respond_to_hi($1,true)", [id]), /REQUEST_CLOSED/);
+});
+
+test("declined and legacy blocked conversations cannot reopen through unblock", async () => {
+  const id = await match();
+  await user(b, "select public.respond_to_hi($1,false)", [id]);
+  await user(a, "select public.block_connection($1)", [id]);
+  await user(a, "select public.unblock_connection($1)", [id]);
+  await assert.rejects(user(a, "select public.send_direct_message($1,$2,$3)", msg(id)), /REQUEST_CLOSED/);
+  await user(a, "select public.block_connection($1)", [id]);
+  // Pre-migration blocks have no evidence of prior acceptance.
+  await db.query("update public.connections set resume_status=null where id=$1", [id]);
+  await user(a, "select public.unblock_connection($1)", [id]);
+  assert.equal((await user<{status:string}>(a, "select status from public.get_connections()"))[0].status, "declined");
+});
+
+test("private block lists paginate without exposing other members' blocks", async () => {
+  await pref(a);
+  for (let i=10;i<45;i++) {
+    const uid = `00000000-0000-4000-8000-${String(i).padStart(12,"0")}`;
+    await db.query("insert into auth.users values($1,'{}') on conflict do nothing", [uid]);
+    const [{id}] = (await db.query<{id:string}>("insert into public.connections(member_a,member_b,initiator) values($1,$2,$1) returning id", [a,uid])).rows;
+    await user(a,"select public.block_connection($1)",[id]);
+  }
+  await db.exec("update public.connection_blocks set created_at='2026-01-01T00:00:00Z'");
+  const first = await user<{peer_id:string;created_at:string}>(a,"select * from public.get_blocked_connections()");
+  const last = first.at(-1)!;
+  const next = await user<{peer_id:string}>(a,"select * from public.get_blocked_connections($1,$2)",[last.created_at,last.peer_id]);
+  assert.equal(first.length,30); assert.equal(next.length,5);
+  assert.equal(new Set([...first,...next].map(x=>x.peer_id)).size,35);
+  assert.equal((await user(b,"select * from public.get_blocked_connections()")).length,0);
+  await assert.rejects(db.exec("begin; set local role anon; select public.get_blocked_connections()"),/permission denied/);
+  await db.exec("rollback");
+});
+
 test("Hi request and message quotas cannot be bypassed through direct RPC", async () => {
   const id = await match();
   await assert.rejects(hi(), /HI_COOLDOWN/);
