@@ -7,7 +7,7 @@
 ## 현재 연결 상태
 
 - Supabase 프로젝트 `bvigbszjuviqjklrrqyb`: 제공받은 공개 키로 연결했습니다.
-- 이 프로젝트에 `202610140001`부터 `202610140004`까지 SQL을 실제 적용했습니다. **같은 프로젝트에 다시 실행하지 마세요.**
+- 이 프로젝트에 `202610140001`부터 `202610140005`까지 SQL을 실제 적용했습니다. **같은 프로젝트에 다시 실행하지 마세요.**
 - SNS 테이블 9개와 Hi/DM 테이블 5개, RLS 권한 정책, 비공개 `captures` 버킷이 생성되었습니다.
 - Zoho 사용자 직접 입력 후 Custom SMTP 활성 상태가 새로고침에도 유지됨을 확인했습니다. 실제 가입 메일 수신은 아직 확인하지 않았습니다.
 - Hi 서버 스키마는 운영 DB에 반영됐으며, 최신 웹과 API는 Netlify Free에 공개 배포했습니다. Spaceship에서 `nepeel.com` A를 `75.2.60.5`, `www` CNAME을 `nepeel.netlify.app`으로 변경했습니다. Zoho 메일의 MX·TXT 레코드는 변경 전과 동일합니다. HTTPS 인증서 발급 상태는 `docs/VERIFICATION.md`를 참고하세요.
@@ -19,6 +19,7 @@
 - 이전 Vercel 배포는 `GHkUkCoLTbmLJCAztC2BJ4G2o9pZ`이며 최신 기능의 운영 배포는 Netlify입니다. Vercel Hobby 자동 배포는 비활성화했습니다.
 - GitHub `nepeel-com/homepage`의 `main`에 웹·앱·서버·DB·테스트 소스를 업로드했습니다. Netlify Free에서 커밋 `437f1b4`를 배포했습니다. 서버 API와 예약 정리 함수도 함께 배포됐고, 운영 사이트는 공개·Deploy Preview는 비공개입니다. 스토어 제출·실기기 촬영 검증은 남아 있습니다.
 - Netlify `nepeel` 프로젝트에 Supabase 서버 키를 Production 전용 Secret으로 저장했습니다. 실제 회원의 인증메일 수신·앱 촬영·계정 삭제 검증은 별도로 필요합니다.
+- 웹·앱 Hi에서 본인이 차단한 회원 목록과 차단 해제를 제공합니다. 상대가 설정한 차단은 유지하며, 양쪽 차단이 없어지면 이전에 수락한 대화만 재개됩니다. 차단 해제는 신고를 취소하거나 만료 시간을 연장하지 않습니다.
 
 ## 로컬 실행
 
@@ -148,7 +149,7 @@ Expo 카메라 → 로그인 JWT + 서버 1회용 challenge
 
 ## 새 Supabase 프로젝트에 설치하는 경우에만
 
-`supabase/migrations`의 SQL 네 파일을 파일명 순서대로 SQL Editor에서 한 번 실행합니다. Supabase CLI로 설치할 수도 있습니다. 이미 이 프로젝트에 SQL Editor로 적용한 마이그레이션을 CLI로 관리하려면 원격 스키마와 파일을 먼저 확인한 후 migration history를 `applied`로 맞추세요. 초기화 SQL을 다시 실행하면 중복 객체 오류가 발생합니다.
+`supabase/migrations`의 SQL 다섯 파일을 파일명 순서대로 SQL Editor에서 한 번 실행합니다. Supabase CLI로 설치할 수도 있습니다. 이미 이 프로젝트에 SQL Editor로 적용한 마이그레이션을 CLI로 관리하려면 원격 스키마와 파일을 먼저 확인한 후 migration history를 `applied`로 맞추세요. 초기화 SQL을 다시 실행하면 중복 객체 오류가 발생합니다.
 
 ## 검증과 범위
 
