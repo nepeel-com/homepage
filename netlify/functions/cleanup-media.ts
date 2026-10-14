@@ -12,6 +12,8 @@ export default async function cleanup() {
       auth: { persistSession: false, autoRefreshToken: false },
     },
   );
+  const { error } = await client.rpc("expire_capture_publications");
+  if (error) throw new Error("capture_expiry_unavailable");
   let removed = 0;
   // Bound each run's work and let the next run resume any backlog.
   for (let page = 0; page < 5; page++) {
