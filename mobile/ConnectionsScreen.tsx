@@ -20,6 +20,7 @@ import {
   savePreferences,
   type ConnectionPreferences,
   type Gender,
+  type BlockedConnection,
 } from "../shared/connect";
 import { useConnections } from "../shared/useConnections";
 
@@ -57,6 +58,7 @@ export default function ConnectionsScreen({
   const [body, setBody] = useState("");
   const [report, setReport] = useState(false);
   const [reason, setReason] = useState("other");
+  const [unblocking, setUnblocking] = useState<BlockedConnection | null>(null);
   const pending = useRef<{
     body: string;
     id: string;
@@ -114,7 +116,9 @@ export default function ConnectionsScreen({
     >
       <View style={s.header}>
         {button(t("뒤로", "Back"), () => {
-          if (editing) setEditing(false);
+          if (unblocking) setUnblocking(null);
+          else if (h.blocksOpen) h.setBlocksOpen(false);
+          else if (editing) setEditing(false);
           else if (h.selected) h.select(null);
           else close();
         })}
@@ -125,7 +129,31 @@ export default function ConnectionsScreen({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={s.content}
       >
-        {editing ? (
+        {h.blocksOpen ? (
+          <View style={s.stack}>
+            <Text style={s.title}>{t("내가 차단한 Hi 회원", "People you've blocked on Hi")}</Text>
+            <Text style={s.muted}>{t("내가 설정한 차단만 표시합니다. 상대가 설정한 차단은 해제할 수 없어요.", "Only your blocks appear here. You cannot remove another person's block.")}</Text>
+            {unblocking ? <View style={s.card}>
+              <Text style={s.label}>{unblocking.display_name} {t("님의 차단을 해제할까요?", "— unblock?")}</Text>
+              <Text style={s.muted}>{t("양쪽의 차단이 모두 해제되면, 이전에 수락한 대화와 메시지가 다시 열려요. 수락하지 않은 요청은 원래 만료 시간이 유지되고 신고는 취소되지 않아요.", "Once neither person is blocking, previously accepted chats and messages reopen. Unaccepted requests keep their expiry. Reports remain submitted.")}</Text>
+              {button(t("취소", "Cancel"), () => setUnblocking(null))}
+              {button(t("차단 해제", "Unblock"), () => void h.run(async () => {
+                await h.act("unblock_connection", { p_connection: unblocking.connection_id });
+                setUnblocking(null);
+                setNotice(t("내 차단을 해제했어요. 상대가 차단한 경우 대화는 계속 닫혀 있습니다.", "Your block was removed. A block set by the other person still keeps the chat closed."));
+              }), true)}
+            </View> : <>
+              {button(t("목록 새로고침", "Refresh list"), () => void h.run(h.refreshBlocks), false, h.blocksLoading)}
+              {h.blocksLoading ? <Text>{t("불러오는 중…", "Loading…")}</Text>
+                : !h.blocks.length ? <Text style={s.muted}>{t("내가 차단한 Hi 회원이 없어요.", "You haven't blocked anyone on Hi.")}</Text>
+                : h.blocks.map(item => <View key={item.peer_id} style={s.card}>
+                  <Text style={s.label}>{item.display_name}</Text><Text style={s.muted}>@{item.username}</Text>
+                  {button(`${item.display_name} · ${t("차단 해제", "Unblock")}`, () => { setNotice(""); setUnblocking(item); })}
+                </View>)}
+              {h.blocksMore && !h.blocksLoading && button(t("더 보기", "Load more"), () => void h.run(h.loadMoreBlocks))}
+            </>}
+          </View>
+        ) : editing ? (
           <View style={s.stack}>
             <Text style={s.title}>
               {t("나의 연결 조건", "Your preferences")}
@@ -434,16 +462,15 @@ export default function ConnectionsScreen({
                 )}
               </View>
             )}
-            {thread.status !== "blocked" &&
-              button(t("차단 · 신고", "Block · Report"), () =>
+            {button(t("차단 · 신고", "Block · Report"), () =>
                 setReport(!report),
               )}
             {report && (
               <View style={s.card}>
                 <Text style={s.muted}>
                   {t(
-                    "차단하면 서로 메시지를 보낼 수 없고 다시 연결되지 않아요. 메시지는 운영 검토를 위해 보관됩니다.",
-                    "Blocking stops messages and future matching. Messages are retained for moderation.",
+                    "차단 중에는 서로 메시지를 보낼 수 없어요. Hi 차단 관리에서 내 차단을 해제할 수 있으며, 기존 메시지는 보관됩니다.",
+                    "Messages stop while blocked. You can remove your block in Manage Hi blocks. Existing messages are retained.",
                   )}
                 </Text>
                 <View style={s.row}>
@@ -565,6 +592,7 @@ export default function ConnectionsScreen({
               </Text>
               {button(t("새로고침", "Refresh"), () => void h.run(h.refresh))}
             </View>
+            {button(t("Hi 차단 관리", "Manage Hi blocks"), () => { setUnblocking(null); setNotice(""); h.setBlocksOpen(true); })}
             <Text style={s.muted}>
               {h.liveState
                 ? t("실시간 연결됨", "Live updates")
