@@ -400,6 +400,7 @@ export default function App() {
       <a className="skip-link" href="#main">
         본문으로 건너뛰기
       </a>
+      <div className="site-frame">
       <aside className="sidebar">
         <a
           className="brand-link"
@@ -1091,6 +1092,7 @@ export default function App() {
             </div>
           </aside>
         </div>
+      </div>
       </div>
       <nav className="mobile-nav" aria-label="모바일 메뉴">
         {navigation.slice(0, 2).map((item) => (

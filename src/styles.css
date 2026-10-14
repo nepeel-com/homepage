@@ -32,7 +32,12 @@
   --line: #e7e9e1;
   --wash: #f0f2eb;
   --radius: 14px;
-  --sidebar: 232px;
+  --frame-width: 1180px;
+  --outer-gutter: 32px;
+  --sidebar: 208px;
+  --rail-width: 248px;
+  --column-gap: 28px;
+  --content-inset: 28px;
 }
 * {
   box-sizing: border-box;
@@ -126,13 +131,19 @@ main:focus {
 .skip-link:focus {
   top: 10px;
 }
+.site-frame {
+  width: calc(100% - 2 * var(--outer-gutter));
+  max-width: var(--frame-width);
+  margin-inline: auto;
+}
 .sidebar {
   position: fixed;
-  inset: 0 auto 0 0;
+  inset: 0 auto 0 max(var(--outer-gutter), calc((100% - var(--frame-width)) / 2));
   width: var(--sidebar);
   background: #fff;
   border-right: 1px solid var(--line);
-  padding: 35px 22px 20px;
+  padding: 35px 16px 20px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   z-index: 20;
@@ -330,7 +341,7 @@ main:focus {
 .topbar {
   height: 85px;
   border-bottom: 1px solid var(--line);
-  padding: 0 40px;
+  padding: 0 var(--content-inset);
   display: flex;
   gap: 25px;
   align-items: center;
@@ -404,12 +415,11 @@ main:focus {
   display: none;
 }
 .page-layout {
-  max-width: 1240px;
   margin: auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 40px;
-  padding: 34px 40px;
+  grid-template-columns: minmax(0, 1fr) var(--rail-width);
+  gap: var(--column-gap);
+  padding: 34px var(--content-inset);
 }
 .page-heading {
   display: flex;
@@ -1617,15 +1627,7 @@ main:focus {
   margin-bottom: 26px;
 }
 @media (min-width: 1500px) {
-  :root {
-    --sidebar: 254px;
-  }
-  .sidebar {
-    padding-left: 30px;
-    padding-right: 30px;
-  }
   .page-layout {
-    gap: 48px;
     padding-top: 42px;
   }
   .post-photo {
@@ -1633,19 +1635,11 @@ main:focus {
   }
 }
 @media (max-width: 1200px) {
-  :root {
-    --sidebar: 210px;
-  }
   .sidebar {
     padding: 30px 16px 16px;
   }
   .page-layout {
-    padding: 28px;
-    gap: 26px;
-    grid-template-columns: minmax(0, 1fr) 250px;
-  }
-  .topbar {
-    padding: 0 28px;
+    padding-top: 28px;
   }
   .welcome-card {
     padding: 19px;
@@ -1674,13 +1668,13 @@ main:focus {
 }
 @media (max-width: 1050px) {
   :root {
-    --sidebar: 200px;
+    --frame-width: 860px;
+    --outer-gutter: 24px;
+    --sidebar: 184px;
   }
   .page-layout {
-    grid-template-columns: minmax(0, 680px);
-    justify-content: center;
-    max-width: 800px;
-    padding: 30px;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 30px var(--content-inset);
   }
   .right-rail {
     display: none;
@@ -1690,14 +1684,21 @@ main:focus {
     letter-spacing: 1px;
   }
   .topbar {
-    padding: 0 30px;
+    padding: 0 var(--content-inset);
     gap: 18px;
   }
   .search-field {
     width: 260px;
   }
   .brand {
-    font-size: 40px;
+    font-size: 35px;
+  }
+  .brand-link {
+    padding-inline: 6px;
+  }
+  .brand-caption {
+    margin-left: 6px;
+    letter-spacing: 1.3px;
   }
   .sidebar-manifesto {
     padding-left: 12px;
@@ -1729,6 +1730,7 @@ main:focus {
 @media (max-width: 760px) {
   :root {
     --sidebar: 0px;
+    --outer-gutter: 0px;
   }
   .sidebar {
     display: none;
