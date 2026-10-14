@@ -142,7 +142,7 @@ main:focus {
   width: var(--sidebar);
   background: #fff;
   border-right: 1px solid var(--line);
-  padding: 35px 16px 20px;
+  padding: 35px 12px 20px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -150,22 +150,22 @@ main:focus {
 }
 .brand-link {
   display: block;
-  padding: 0 15px;
+  padding: 0 6px;
 }
 .brand {
   display: flex;
   align-items: center;
   font-family: Arial, sans-serif;
-  font-size: 43px;
+  font-size: 36px;
   font-weight: 900;
   letter-spacing: -3.4px;
   line-height: 1;
 }
 .brand svg {
-  width: 31px;
-  height: 31px;
+  width: 26px;
+  height: 26px;
   stroke-width: 2.7;
-  margin-left: 5px;
+  margin-left: 4px;
   transform: rotate(-12deg);
   background: var(--lime);
   border-radius: 50%;
@@ -173,9 +173,9 @@ main:focus {
 }
 .brand-caption {
   font-family: "Barlow Condensed", sans-serif;
-  letter-spacing: 1.9px;
+  letter-spacing: 1.3px;
   font-size: 10px;
-  margin: 13px 0 49px 16px;
+  margin: 13px 0 49px 6px;
   font-weight: 700;
 }
 .sidebar nav {
@@ -214,14 +214,21 @@ main:focus {
 .capture-button {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: var(--ink);
   color: white;
   border-radius: 10px;
-  padding: 15px 16px;
+  padding: 15px 12px;
   margin-top: 28px;
   font-size: 13px;
   font-weight: 700;
+}
+.capture-button span {
+  white-space: nowrap;
+}
+.capture-button > svg {
+  width: 18px;
+  height: 18px;
 }
 .capture-button > svg:last-child {
   margin-left: auto;
@@ -267,9 +274,13 @@ main:focus {
   padding: 20px 4px 14px;
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 8px;
   width: 100%;
   text-align: left;
+}
+.account-button > svg {
+  width: 16px;
+  height: 16px;
 }
 .account-button > span:nth-child(2) {
   display: flex;
@@ -287,6 +298,7 @@ main:focus {
 .account-button small {
   font-size: 10px;
   color: var(--muted);
+  word-break: keep-all;
 }
 .sidebar-foot {
   display: flex;
@@ -1691,7 +1703,17 @@ main:focus {
     width: 260px;
   }
   .brand {
-    font-size: 35px;
+    font-size: 31px;
+  }
+  .brand svg {
+    width: 24px;
+    height: 24px;
+  }
+  .capture-button {
+    padding-inline: 8px;
+  }
+  .capture-button > svg:last-child {
+    display: none;
   }
   .brand-link {
     padding-inline: 6px;
