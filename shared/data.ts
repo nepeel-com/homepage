@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedMode, Post, Profile } from "./types";
+import { getPhotoDetails } from "./places";
 
 export async function getFeed(
   client: SupabaseClient,
@@ -17,14 +18,23 @@ export async function getFeed(
   if (error) throw error;
   const rows = (data ?? []) as Post[];
   if (!rows.length) return [];
-  const { data: urls, error: mediaError } = await client.storage
-    .from("captures")
-    .createSignedUrls(
+  const [{ data: urls, error: mediaError }, details] = await Promise.all([
+    client.storage.from("captures").createSignedUrls(
       rows.map((p) => p.image_path),
       300,
-    );
+    ),
+    getPhotoDetails(
+      client,
+      rows.map((p) => p.id),
+    ),
+  ]);
   if (mediaError) throw mediaError;
-  return rows.map((p, i) => ({ ...p, image_url: urls?.[i]?.signedUrl ?? "" }));
+  const byId = new Map(details.map((d) => [d.post_id, d]));
+  return rows.map((p, i) => ({
+    ...p,
+    details: byId.get(p.id),
+    image_url: urls?.[i]?.signedUrl ?? "",
+  }));
 }
 export async function getProfile(
   client: SupabaseClient,

@@ -1,3 +1,5 @@
+import { contextPayload, type CaptureContext } from "./capture-context";
+import type { PhotoDetails } from "./places";
 export type FeedMode = "all" | "following" | "saved" | "profile";
 export interface Profile {
   id: string;
@@ -21,6 +23,7 @@ export interface Post {
   saved: boolean;
   following: boolean;
   image_url: string;
+  details?: PhotoDetails;
   sample?: boolean;
 }
 export interface Comment {
@@ -45,6 +48,7 @@ export interface CaptureRequest {
   imageBase64: string;
   caption: string;
   proof: CaptureProof;
+  context?: CaptureContext;
 }
 export const CAPTURE_MAX_BYTES = 2 * 1024 * 1024;
 export const CAPTION_MAX_LENGTH = 1000;
@@ -55,13 +59,15 @@ export function capturePayload(
   challenge: Challenge,
   imageHash: string,
   caption: string,
+  context?: CaptureContext,
 ) {
   return JSON.stringify([
-    "nepeel.capture.v1",
+    context ? "nepeel.capture.v2" : "nepeel.capture.v1",
     userId,
     challenge.id,
     challenge.nonce,
     imageHash,
     caption,
+    ...(context ? [contextPayload(context)] : []),
   ]);
 }
