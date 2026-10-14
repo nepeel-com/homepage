@@ -2,6 +2,58 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedMode, Post, Profile } from "./types";
 import { getPhotoDetails } from "./places";
 
+export interface FeedCursor {
+  createdAt: string;
+  id: string;
+}
+export interface FeedPage {
+  posts: Post[];
+  cursor: FeedCursor | null;
+  hasMore: boolean;
+}
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const timestamp =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
+export async function getFeedPage(
+  client: SupabaseClient,
+  mode: FeedMode = "all",
+  search = "",
+  cursor: FeedCursor | null = null,
+  postId?: string,
+): Promise<FeedPage> {
+  if (
+    cursor &&
+    (!uuid.test(cursor.id) ||
+      !timestamp.test(cursor.createdAt) ||
+      !Number.isFinite(Date.parse(cursor.createdAt)))
+  )
+    throw new Error("피드 위치를 확인하지 못했어요. 새로고침해 주세요.");
+  const { data, error } = await client.rpc("get_feed_page", {
+    p_mode: mode,
+    p_search: search,
+    p_cursor_at: cursor?.createdAt ?? null,
+    p_cursor_id: cursor?.id ?? null,
+    p_post: postId || null,
+  });
+  if (error) throw error;
+  const rows = (data ?? []) as Post[];
+  const visible = rows.slice(0, 20);
+  const last = visible.at(-1);
+  const next = last ? { createdAt: last.created_at, id: last.id } : null;
+  if (
+    next &&
+    (!uuid.test(next.id) ||
+      !timestamp.test(next.createdAt) ||
+      !Number.isFinite(Date.parse(next.createdAt)))
+  )
+    throw new Error("피드 응답을 확인하지 못했어요.");
+  return {
+    posts: await hydrateFeed(client, visible),
+    cursor: next,
+    hasMore: rows.length > 20,
+  };
+}
+
 export async function getFeed(
   client: SupabaseClient,
   mode: FeedMode = "all",
@@ -17,6 +69,12 @@ export async function getFeed(
   });
   if (error) throw error;
   const rows = (data ?? []) as Post[];
+  return hydrateFeed(client, rows);
+}
+async function hydrateFeed(
+  client: SupabaseClient,
+  rows: Post[],
+): Promise<Post[]> {
   if (!rows.length) return [];
   const [{ data: urls, error: mediaError }, details] = await Promise.all([
     client.storage.from("captures").createSignedUrls(

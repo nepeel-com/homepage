@@ -4,9 +4,18 @@ export async function accountAction(
   client: SupabaseClient,
   apiBase: string,
   body: Record<string, unknown>,
+  expectedUserId: string,
 ) {
   const { data, error } = await client.auth.getSession();
-  if (error || !data.session) throw new Error("다시 로그인해 주세요.");
+  if (
+    error ||
+    !data.session ||
+    !expectedUserId ||
+    data.session.user.id !== expectedUserId
+  )
+    throw new Error(
+      "로그인 계정이 바뀌었어요. 현재 계정에서 다시 확인해 주세요.",
+    );
   const response = await fetch(`${apiBase.replace(/\/$/, "")}/api/capture`, {
     method: "POST",
     headers: {
