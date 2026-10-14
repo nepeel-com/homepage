@@ -37,6 +37,7 @@ import { useFeed } from "./useFeed";
 import type { FeedMode, Post, Profile } from "../shared/types";
 import DeleteAccount from "./components/DeleteAccount";
 import PhotoPlace from "./components/PhotoPlace";
+import { accountAction } from "../shared/account";
 import {
   About,
   AuthDialog,
@@ -161,7 +162,7 @@ export default function App() {
   const [view, setView] = useState<View>(readView);
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!supabase);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileState, setProfile] = useState<Profile | null>(null);
   const [mode, setMode] = useState<"all" | "following">("all");
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
@@ -173,11 +174,13 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState<string[]>([]);
   const busyRef = useRef(new Set<string>());
+  const authUser = useRef<string | null>(null);
   const [postLink, setPostLink] = useState(() =>
     location.hash.startsWith("#post/") ? location.hash.slice(6) : "",
   );
   const preview = !session;
   const userId = session?.user.id;
+  const profile = profileState?.id === userId ? profileState : null;
   const notify = (text: string) => setNotice(text);
   useEffect(() => {
     if (notice) {
@@ -198,8 +201,10 @@ export default function App() {
   useEffect(() => {
     if (!supabase) return;
     let active = true;
+    let authEvent = false;
     supabase.auth.getSession().then(({ data, error: authError }) => {
-      if (active) {
+      if (active && !authEvent) {
+        authUser.current = data.session?.user.id ?? null;
         setSession(data.session);
         setAuthReady(true);
         if (authError) setNotice("로그인 상태를 확인할 수 없습니다.");
@@ -210,14 +215,18 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, next) => {
+      authEvent = true;
+      const changedAccount = !!authUser.current && authUser.current !== next?.user.id;
+      authUser.current = next?.user.id ?? null;
       setSession(next);
       setAuthReady(true);
       if (event === "PASSWORD_RECOVERY") setModal("recovery");
-      if (event === "SIGNED_OUT") {
+      if (!next || changedAccount) {
         setProfile(null);
         setDetail(null);
         setReport(null);
         setDeleting(null);
+        if (changedAccount) setModal(null);
       }
     });
     return () => {
@@ -256,6 +265,12 @@ export default function App() {
     scope: view, mode: feedMode, search, postId: postLink, refresh,
   });
   const { setPosts, loading, hasMore, nextPage, loadingMore: loadMore } = feed;
+  const reloadFeed = feed.reload;
+  useEffect(() => {
+    const resume = () => { if (document.visibilityState === "visible") void reloadFeed(4 * 60_000); };
+    document.addEventListener("visibilitychange", resume);
+    return () => document.removeEventListener("visibilitychange", resume);
+  }, [reloadFeed]);
   const error = feed.error ? "피드를 불러오지 못했어요. 연결을 확인하고 다시 시도해 주세요." : "";
   const posts = !userId && authReady
     ? view === "saved" || view === "profile" || (mode === "following" && view === "feed")
@@ -733,14 +748,20 @@ export default function App() {
                   <button
                     className="sort-label"
                     onClick={() => {
-                      setRefresh((v) => v + 1);
+                      void reloadFeed();
                       notify("최신 순간을 불러옵니다.");
                     }}
                     aria-label="최신순 피드 새로고침"
+                    disabled={feed.refreshing || loading}
                   >
                     <SlidersHorizontal size={14} /> 최신순
                   </button>
                 </div>
+                {feed.refreshing && <p className="loading-state" role="status"><LoaderCircle className="spin" /> 최신 순간을 불러오는 중</p>}
+                {feed.refreshError && <div className="form-error" role="alert">
+                  새 사진을 불러오지 못했어요. 기존 사진은 그대로 볼 수 있어요.
+                  <button className="text-button" onClick={() => void reloadFeed()}>다시 시도</button>
+                </div>}
                 {preview && (
                   <div className="preview-note">
                     <span>
@@ -765,7 +786,7 @@ export default function App() {
                     <p>{error}</p>
                     <button
                       className="dark-button"
-                      onClick={() => setRefresh((v) => v + 1)}
+                      onClick={() => void reloadFeed()}
                     >
                       다시 시도
                     </button>
@@ -1181,6 +1202,8 @@ export default function App() {
       )}
       {modal === "deleteAccount" && session && (
         <DeleteAccount
+          key={userId}
+          userId={userId!}
           close={() => setModal(null)}
           done={() => {
             setModal(null);
@@ -1210,19 +1233,7 @@ export default function App() {
             disabled={busy.includes("delete")}
             onClick={() =>
               void run("delete", async () => {
-                const { data } = await supabase!.auth.getSession();
-                const response = await fetch("/api/capture", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${data.session?.access_token}`,
-                  },
-                  body: JSON.stringify({
-                    action: "delete",
-                    postId: deleting.id,
-                  }),
-                });
-                if (!response.ok) throw new Error("delete");
+                await accountAction(supabase!, "", { action: "delete", postId: deleting.id }, userId!);
                 setPosts((old) => old.filter((p) => p.id !== deleting.id));
                 setDeleting(null);
                 notify("사진을 삭제했어요.");
