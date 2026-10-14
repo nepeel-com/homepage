@@ -16,7 +16,7 @@
 
 대안인 [Netlify Free는 상업 프로젝트를 허용](https://www.netlify.com/blog/introducing-netlify-free-plan/)합니다. [현재 요금](https://www.netlify.com/pricing/)은 월 300 크레딧을 배포·요청·대역폭·컴퓨팅이 함께 사용합니다. 무제한 무료가 아닙니다. [무료 한도 소진 시 사이트가 중지](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/billing-faq-for-credit-based-plans/)되므로 사용량을 확인해야 합니다. 유료 플랜/자동 충전 설정은 하지 않습니다.
 
-`netlify.toml`과 `netlify/functions/capture.ts`를 준비했습니다. Vite 정적 화면과 `/api/capture` API를 함께 이전할 수 있습니다. `server/capture.ts`는 호스팅 서비스에 의존하지 않는 공통 Node 처리기이며, Vercel 어댑터도 유지합니다. Netlify 실제 계정 연결/배포/도메인 전환은 아직 실행하지 않았습니다. 서버 비밀 키는 새 호스팅의 서버 환경에만 별도로 저장해야 합니다.
+`netlify.toml`과 `netlify/functions/capture.ts`를 통해 Vite 화면과 `/api/capture` API를 Netlify Free에 함께 배포했습니다. 공개 주소는 `https://nepeel.netlify.app`이며, 운영 사이트 공개·Deploy Preview 비공개로 설정했습니다. 기존 Supabase Secret 키를 Production 전용 Secret으로 저장했고 다른 배포 컨텍스트는 비워 두었습니다. `server/capture.ts`는 공통 Node 처리기이며 Vercel 어댑터도 유지합니다. Spaceship에서 `nepeel.com` A를 `75.2.60.5`, `www` CNAME을 `nepeel.netlify.app`으로 변경했으며 Zoho 메일의 MX·TXT는 그대로 유지했습니다. Netlify DNS 검증은 성공했고 HTTPS 인증서 발급을 요청했습니다. 최종 TLS 확인 결과는 `VERIFICATION.md`를 참고하세요.
 
 Supabase도 [Free 한도](https://supabase.com/pricing)가 있습니다. 사진 저장/다운로드가 주된 비용 요인이므로 2MB JPEG 제한, 비공개 버킷, 만료되는 서명 URL, 외부 업로드 차단을 유지합니다. 메일함 요금과 앱 스토어 개발자 계정 요금은 웹 호스팅과 별개입니다. 아직 Apple/Google 계정이 없어 공식 앱 촬영 게시는 잠겨 있습니다.
 
@@ -33,13 +33,13 @@ Supabase도 [Free 한도](https://supabase.com/pricing)가 있습니다. 사진 
 | 사진 인증 | 공통 Node 서버의 기기 검증, 1회성 촬영 증명 | 검증 워커/대기열, 안전한 재처리와 정리 작업 |
 | DB | Supabase 단일 리전 Postgres/RLS | 주요 사용자 지역 기준 배치, 백업/복구, 필요할 때 유료 리소스 승인 |
 
-CDN이 글로벌이어도 인증·DB 쓰기 지연은 DB 리전과 사용자의 거리에 영향을 받습니다. 전 세계 저지연이나 고가용성을 측정 없이 보장하지 않습니다. 다중 리전 DB와 대규모 사진 트래픽을 영구 무료로 약속하지 않습니다.
+CDN이 글로벌이어도 인증·DB 쓰기 지연은 DB 리전과 사용자의 거리에 영향을 받습니다. 현재 Supabase DB는 도쿄, Netlify Free 함수는 Ohio이며 함수 지역 변경에는 업그레이드가 필요하다는 대시보드 안내를 확인했습니다. 피드·Hi는 Supabase에 직접 연결하고, 촬영 검증·계정 삭제는 Netlify 함수를 거칩니다. 전 세계 저지연이나 고가용성을 측정 없이 보장하지 않습니다.
 
 ## 다음 출시 게이트
 
 1. Zoho SMTP 설정은 사용자가 저장했고 새로고침 후 유지됨을 확인했습니다. 실제 가입 인증메일 수신과 로그인 복귀를 사용자 계정으로 확인해야 합니다. 인증 우회는 추가하지 않습니다.
 2. GitHub `nepeel-com/homepage`에 소스 업로드 완료. 브라우저의 기존 로그인으로 동기화하고 원격 fetch 후 파일 내용을 비교했습니다.
-3. Netlify Free 로그인/계정 연결 후 환경 설정, 임시 URL 검증, `nepeel.com` 도메인 전환 순으로 진행합니다. 준비되지 않은 대상에 DNS부터 변경하지 않습니다. 게시물·계정 삭제의 사진 정리 재시도 함수 `cleanup-media`가 예약 함수로 배포되었는지도 확인합니다.
+3. Netlify Free 연결·환경 설정·공개 URL 응답 검증, Spaceship 웹 DNS 전환과 `nepeel.com`/`www.nepeel.com` HTTPS 확인은 완료했습니다. 이전 Vercel 환경과 레거시 Supabase 키 정리는 별도로 남아 있습니다. Zoho 메일 레코드는 유지했습니다. `cleanup-media` 예약 함수 등록은 확인했으며 실제 실행 결과는 별도로 확인해야 합니다.
 4. 두 실제 성인 참여자의 동의하에 요청→수락→DM→차단 흐름과 기기 간 갱신을 확인합니다. 테스트용 가짜 회원을 운영 환경에 심지 않습니다.
 5. 본인확인/나이 보증은 아직 없습니다. 자기신고만으로 인증된 성인이라고 표시하지 않습니다. 정식 데이팅 운영 전 지역별 자격 정책, 개인정보·보관/삭제 절차, 신고 대응 인력을 정해야 합니다.
 
