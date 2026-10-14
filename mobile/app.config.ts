@@ -31,6 +31,7 @@ export default {
       ],
     },
     plugins: [
+      "./plugins/withSharedAndroidSources.cjs",
       [
         "expo-camera",
         {
