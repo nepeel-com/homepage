@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Comment, FeedMode, Post, Profile } from "./types";
+import type { FeedMode, Post, Profile } from "./types";
 
 export async function getFeed(
   client: SupabaseClient,
@@ -78,30 +78,6 @@ export async function setFollowing(
         .eq("follower_id", userId)
         .eq("following_id", target);
   if (result.error) throw result.error;
-}
-export async function getComments(
-  client: SupabaseClient,
-  postId: string,
-): Promise<Comment[]> {
-  const { data, error } = await client
-    .from("comments")
-    .select("id, body, created_at, user_id, profiles(username, display_name)")
-    .eq("post_id", postId)
-    .order("created_at")
-    .limit(100);
-  if (error) throw error;
-  return data as unknown as Comment[];
-}
-export async function addComment(
-  client: SupabaseClient,
-  userId: string,
-  postId: string,
-  body: string,
-) {
-  const { error } = await client
-    .from("comments")
-    .insert({ user_id: userId, post_id: postId, body: body.trim() });
-  if (error) throw error;
 }
 export async function updateProfile(
   client: SupabaseClient,
