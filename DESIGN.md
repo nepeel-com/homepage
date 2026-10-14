@@ -43,3 +43,27 @@ Use Non-AI as the community intent, not an absolute AI-detection guarantee. The 
 ## 9. Anti-patterns
 
 No fake members, exact GPS/birthdate disclosure, unsolicited repeat DMs, age/identity verification claims based on self-declaration, unbounded queries, constant polling or paid upgrades without authorization.
+
+## 10. Places, nearby moments and repeat photography
+
+Extend the existing camera and feed without changing the centered desktop frame. A short location card explains the benefit before the app requests foreground location permission. Once enabled, opening the app or camera can suggest nearby photos by followed members. Denied permission, unavailable GPS and empty results never block ordinary camera posting. Do not request background location in the first release.
+
+The review screen has four decisions in order: photo/color preset, caption, suggested place with sharing audience, and publish. Default location audience is followers once the member enables the feature; the member can choose private, followers or members for each photo. Round coordinates to three decimal places before transport/storage (approximately 100 m latitude precision); show “approximate shooting place” and never imply live friend tracking. Reverse-geocoded labels are suggestions and remain editable. Remove location with one action. Keep the original EXIF stripped from the delivered image.
+
+Nearby results contain the followed author's name, photo, place label, approximate distance and capture date. A dismissed result is not repeatedly announced. Selecting “same framing” opens the camera with that authorized photo overlaid at adjustable opacity, a rule-of-thirds grid and a clear way to hide the reference. The camera still captures a new photo; an old image is never uploaded as a new capture. Saved posts are the first version of a “places to try” collection. Map navigation uses an explicit user action to open the installed map app.
+
+Use five restrained, non-generative color presets: original, warm, cool, monochrome and faded film. Share the exact color matrices between the GPU preview and server rendering. Bind the selected preset, approximate location, audience and reference photo to the image's capture proof. Show the selected preset as metadata; do not call filtered pixels unedited. Preserve the same immutable request across network retries, keep a draft when the app backgrounds, and lock its caption/place/filter once publishing begins. A successful retry returns the original post.
+
+Verification gates: permission denial and GPS timeout; no location leakage to non-followers or blocked accounts; nearby distance/radius and international date-line cases; reference deletion and follow changes; filter preview/render pixel agreement; proof tampering; duplicate/uncertain publish responses; real Android camera, GPS and overlay behavior. Local mocks do not prove physical-device behavior.
+
+## 11. Moments in space — phone first, glasses later
+
+The user clarified that photographs should inhabit places: point a phone camera around, discover floating photographs and direction hints, tap to enter that photograph's feed, and later use the same places through glasses. This is spatial discovery, not only an ordinary location list.
+
+The first phone implementation uses a foreground camera preview plus GPS/compass direction cues. `shared/spatial.ts` computes bearing, relative heading and bounded marker cues independently of Expo or a display SDK. `mobile/SpatialScreen.tsx` renders a maximum of three photo markers, a reachable list alternative when heading is unavailable, a selected-photo card and entry into the real single-post feed. Recheck location visibility and the post before entering it. Stop camera/sensor subscriptions on background or exit. No video recording, automatic posting or background location. Nearby points within 120m are labeled as an approximate area instead of implying exact direction from quantized coordinates.
+
+This release is a GPS direction overlay, not six-degree-of-freedom tracking, surface detection, building recognition, occlusion, or centimeter-accurate world anchoring. Precise persistent AR anchors are a later capability with their own privacy/accuracy and hardware tests. Keep photo IDs and location audiences shared across phone and glasses; device adapters own camera permission, head pose, presentation and capture provenance. A glasses camera must have a separately reviewed verification path before it may publish—do not quietly treat a paired camera as a verified phone camera.
+
+Future glasses design uses one glanceable photo cue at a time with an explicit open/capture action, a phone companion for editing/permissions, and supported voice or physical inputs. No always-on capture or unrequested audio permission. Platform SDK integration and actual glasses rendering remain unimplemented until a target device is selected and available.
+
+Official platform references checked 2026-10-14: [Expo Location](https://docs.expo.dev/versions/latest/sdk/location/), [Android XR](https://developer.android.com/develop/xr/jetpack-xr-sdk), [Meta Wearables](https://developers.meta.com/wearables/device-access-toolkit/). SDK support for camera/display/input and provenance must be verified for the selected device rather than assumed from a brand name.

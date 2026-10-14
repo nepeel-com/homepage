@@ -7,7 +7,7 @@
 ## 현재 연결 상태
 
 - Supabase 프로젝트 `bvigbszjuviqjklrrqyb`: 제공받은 공개 키로 연결했습니다.
-- 이 프로젝트에 `202610140001`부터 `202610140005`까지 SQL을 실제 적용했습니다. **같은 프로젝트에 다시 실행하지 마세요.**
+- 이 프로젝트에 `202610140001`부터 `202610140007`까지 SQL을 실제 적용했습니다. **같은 프로젝트에 다시 실행하지 마세요.**
 - SNS 테이블 9개와 Hi/DM 테이블 5개, RLS 권한 정책, 비공개 `captures` 버킷이 생성되었습니다.
 - Zoho 사용자 직접 입력 후 Custom SMTP 활성 상태가 새로고침에도 유지됨을 확인했습니다. 실제 가입 메일 수신은 아직 확인하지 않았습니다.
 - Hi 서버 스키마는 운영 DB에 반영됐으며, 최신 웹과 API는 Netlify Free에 공개 배포했습니다. Spaceship에서 `nepeel.com` A를 `75.2.60.5`, `www` CNAME을 `nepeel.netlify.app`으로 변경했습니다. Zoho 메일의 MX·TXT 레코드는 변경 전과 동일합니다. HTTPS 인증서 발급 상태는 `docs/VERIFICATION.md`를 참고하세요.
@@ -23,6 +23,10 @@
 - 웹·앱 공통 인증메일 재전송·비밀번호 복구 요청과 한국어/영어 인증 화면을 추가했습니다. 메일 요청은 60초 대기·중복 클릭 방지 처리를 사용하며, 실제 발송 제한은 Supabase가 적용합니다. 앱에서 요청한 메일도 공식 웹에서 완료한 뒤 앱에 로그인합니다. 41개 자동 테스트와 로컬 Chrome 화면 검증을 통과했습니다. 운영 배포 상태와 실제 메일 수신 검증 범위는 `docs/VERIFICATION.md`를 참고하세요.
 
 ## 로컬 실행
+
+사진 장소 기능은 앱 사용 중 위치 권한을 직접 켠 경우에만 사용합니다. 이후 촬영 장소를 자동 제안하며, 기본 공개 범위는 팔로워입니다. 게시 전에 장소 이름·공개 범위를 고르거나 위치를 뺄 수 있고, 게시 후 웹·앱에서 비공개 전환 또는 장소 삭제가 가능합니다. 좌표는 소수 셋째 자리로 줄여 저장하며 EXIF는 제거합니다. 위치가 없어도 사진을 게시할 수 있습니다.
+
+앱의 홈·팔로잉 피드에서 주변 1km 안의 팔로우한 사람의 과거 사진을 최대 20개 안내합니다. 사진 날짜와 대략적인 거리를 표시하며, 현재 이동 위치를 공유하거나 백그라운드 위치를 수집하지 않습니다. 사진을 반투명하게 겹쳐 새 사진을 찍는 구도 가이드, 3분할 격자, 원본·온기·청량·흑백·필름 색감 프리셋을 제공합니다. 색감은 생성형 AI 없이 색상 행렬만 적용하고, 선택한 장소·필터·참고 사진 ID는 촬영 인증에 결합됩니다. 실제 GPS·카메라 사용감은 휴대폰 검증이 남아 있습니다.
 
 무료 글로벌 출시 구조와 현재 제한은 [docs/GLOBAL-LAUNCH.md](docs/GLOBAL-LAUNCH.md)를 참고하세요. Netlify Free에서 웹과 Node 함수를 배포하고 `nepeel.com`의 웹 DNS를 연결했습니다.
 
@@ -57,6 +61,8 @@ rtk proxy npm run typecheck:mobile
 Vite 개발 서버는 웹만 실행합니다. `/api/capture`까지 로컬 실행하려면 Vercel CLI의 `vercel dev`와 서버 환경 변수가 필요합니다. 실기기 앱에는 도달 가능한 **HTTPS** API 주소를 사용하세요.
 
 ## GitHub → Netlify
+
+**공간으로 보기:** 앱의 근처 순간에서 카메라 화면으로 들어가면, GPS·나침반 방향에 맞춰 친구 사진 카드와 방향 안내를 표시합니다. 사진 선택 후 ‘이 순간의 피드로’로 실제 게시물·반응·댓글을 엽니다. 위치가 아주 가까우면 정확한 방향 대신 ‘이 부근’으로 안내하고, 센서가 없으면 사진 목록을 제공합니다. 좌표 공개 정책은 동일하게 적용됩니다. 현재는 대략적 방향 오버레이이며, 건물 표면에 사진을 고정하는 정밀 AR 또는 스마트글라스 SDK 연동은 아직 구현하지 않았습니다. 공간 계산을 공유 모듈로 분리해 이후 기기별 화면으로 확장할 수 있습니다.
 
 현재 운영 호스팅은 Netlify입니다. GitHub `nepeel-com/homepage`의 `main`을 연결하고 저장소 루트, 결과물 `dist`, 함수 폴더 `netlify/functions`를 사용합니다. 새 `netlify.toml`의 빌드는 `npm run build:attestation && npm run build`로 Android 검증 런타임까지 준비합니다. Expo가 자동 감지되더라도 `mobile`을 웹 빌드 루트로 선택하지 마세요. API 경로와 캐시·보안 헤더도 이 파일에 정의합니다.
 
@@ -121,7 +127,7 @@ rtk proxy npx eas-cli build --platform android --profile production
 - 개발 프로필의 App Attest는 개발 환경을 사용합니다. **별도의 staging Supabase와 API**에서만 `APP_ATTEST_ENVIRONMENT=development`를 허용하세요. 운영 서버는 개발 키 게시를 거부합니다.
 - 앱 공개 환경 변수는 EAS 빌드 환경에 별도로 등록해야 합니다. `.env`는 Git과 EAS 업로드에서 제외됩니다.
 - 카메라만 사용하며 이미지 선택기, 갤러리 권한, 녹음 권한은 요청하지 않습니다.
-- 촬영 후 3분 이내에 게시합니다. 만료되거나 한 번 처리된 요청은 새로 촬영해야 합니다. 2MB를 넘는 촬영물은 거부합니다.
+- 촬영 후 3분 이내에 게시를 시작합니다. 서버가 촬영을 확인하고 예약한 요청은 동일한 사진·설정으로 10분간 재시도할 수 있습니다. 응답이 유실돼도 게시물을 중복 생성하지 않습니다. 2MB를 넘는 촬영물은 거부합니다.
 
 패키지 번들만 확인하려면 `mobile`에서 다음을 실행합니다. 네이티브 서명·실기기 인증 테스트를 대신하지 않습니다.
 
@@ -133,11 +139,11 @@ rtk proxy npx expo export --platform all --output-dir ../.qa/mobile-export
 
 ```text
 Expo 카메라 → 로그인 JWT + 서버 1회용 challenge
-           → 사진 SHA-256 + 설명 + 계정 + challenge에 앱 인증 결합
+           → 사진 SHA-256 + 설명 + 계정 + challenge + 장소·색감에 앱 인증 결합
            → Netlify /api/capture (Vercel 어댑터도 제공)
            → Apple App Attest / Google Play Integrity 검증
-           → challenge 소진 + iOS counter 원자적 갱신
-           → EXIF 제거 → 비공개 Supabase Storage → posts 생성
+           → challenge 소진 + iOS counter + 게시 예약 원자적 갱신
+           → EXIF 제거·색감 적용 → 비공개 Supabase Storage → posts·장소 생성
 웹/앱 로그인 → RLS로 피드 조회 → 5분 유효 signed URL로 사진 표시
 ```
 
@@ -154,7 +160,7 @@ Expo 카메라 → 로그인 JWT + 서버 1회용 challenge
 
 ## 새 Supabase 프로젝트에 설치하는 경우에만
 
-`supabase/migrations`의 SQL 다섯 파일을 파일명 순서대로 SQL Editor에서 한 번 실행합니다. Supabase CLI로 설치할 수도 있습니다. 이미 이 프로젝트에 SQL Editor로 적용한 마이그레이션을 CLI로 관리하려면 원격 스키마와 파일을 먼저 확인한 후 migration history를 `applied`로 맞추세요. 초기화 SQL을 다시 실행하면 중복 객체 오류가 발생합니다.
+`supabase/migrations`의 SQL 일곱 파일을 파일명 순서대로 SQL Editor에서 한 번 실행합니다. Supabase CLI로 설치할 수도 있습니다. 이미 이 프로젝트에 SQL Editor로 적용한 마이그레이션을 CLI로 관리하려면 원격 스키마와 파일을 먼저 확인한 후 migration history를 `applied`로 맞추세요. 초기화 SQL을 다시 실행하면 중복 객체 오류가 발생합니다.
 
 ## 검증과 범위
 
