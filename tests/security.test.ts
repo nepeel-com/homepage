@@ -44,7 +44,7 @@ before(async () => {
       "utf8",
     ),
   );
-  for (const file of ["202610140003_hi_connections.sql", "202610140004_account_cleanup.sql", "202610140005_connection_unblock.sql"])
+  for (const file of ["202610140003_hi_connections.sql", "202610140004_account_cleanup.sql", "202610140005_connection_unblock.sql", "202610140006_capture_publications.sql", "202610140007_photo_places.sql"])
     await db.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
   await db.exec(`insert into auth.users values ('${alice}','{"display_name":"Alice"}'),('${bob}','{"display_name":"Bob"}');
     insert into public.posts(id,user_id,image_path,image_sha256,caption,platform,captured_at) values('${post}','${alice}','${alice}/${post}.jpg',repeat('a',64),'a real moment','ios',now());

@@ -8,7 +8,12 @@ const user = {
 } as User;
 const body = { confirmation: "DELETE", password: "local-fixture-password" };
 function backend(fail = "") {
-  const requests: { path: string; method: string; body: unknown }[] = [];
+  const requests: {
+    path: string;
+    query: string;
+    method: string;
+    body: unknown;
+  }[] = [];
   const client = createClient("https://local.example.test", "local-test-key", {
     auth: { persistSession: false, autoRefreshToken: false },
     global: {
@@ -17,6 +22,7 @@ function backend(fail = "") {
         const method = init?.method || "GET";
         requests.push({
           path,
+          query: new URL(String(url)).search,
           method,
           body: init?.body ? JSON.parse(String(init.body)) : undefined,
         });
@@ -71,6 +77,12 @@ test("media cleanup acknowledges jobs only after successful object removal", asy
   );
   const good = backend();
   assert.equal(await cleanupMedia(good.client), 1);
+  const query = new URLSearchParams(
+    good.requests.find(
+      (r) => r.method === "GET" && r.path.endsWith("media_cleanup_jobs"),
+    )!.query,
+  );
+  assert.match(query.get("not_before")!, /^lte\.\d{4}-/);
   const removed = good.requests.find((r) => r.path.includes("/storage/"));
   assert.deepEqual(removed?.body, { prefixes: [`${user.id}/photo.jpg`] });
   assert.equal(good.requests.at(-1)?.method, "DELETE");
