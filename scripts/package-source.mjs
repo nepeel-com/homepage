@@ -5,7 +5,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, '.qa', 'nepeel-sns-source');
 const folders = ['src', 'public', 'mobile', 'shared', 'server', 'api', 'netlify', 'supabase', 'tests', 'docs', 'scripts'];
 const roots = ['package.json','package-lock.json','index.html','vite.config.ts','vercel.json','netlify.toml','tsconfig.json','tsconfig.server.json','.gitignore','.nvmrc','.env.example','README.md','DESIGN.md','design-contract.md','implementation-handoff.md'];
-const skip = new Set(['node_modules','.expo','dist','android','ios','.git','.vercel']);
+const skip = new Set(['node_modules','.expo','.netlify','dist','android','ios','.git','.vercel']);
 let count = 0;
 async function copy(relative) {
   const base = path.basename(relative);
