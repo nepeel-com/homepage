@@ -11,6 +11,7 @@
     "build": "tsc -b && tsc -p tsconfig.server.json && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "tsx --test tests/*.test.ts",
+    "build:attestation": "node scripts/build-android-verifier.mjs",
     "mobile": "npm run start --workspace mobile",
     "typecheck:mobile": "npm run typecheck --workspace mobile"
   },

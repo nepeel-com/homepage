@@ -28,6 +28,8 @@
 
 Android 로컬 빌드와 테스트 APK의 범위는 [docs/ANDROID-TEST.md](docs/ANDROID-TEST.md)에 기록합니다. 테스트 APK는 Google Play에서 인증된 배포본이 아니며 운영 촬영 검증을 우회하지 않습니다.
 
+새 소스에는 서명된 직접 설치 Android 앱의 하드웨어 인증 경로가 추가됐습니다. 설정·검증 원칙·현재 로컬 검증과 운영 배포의 구분은 [docs/ANDROID-ATTESTATION.md](docs/ANDROID-ATTESTATION.md)를 참고하세요. 운영 활성화 및 실제 기기 촬영은 아직 검증 전입니다.
+
 GitHub 커밋이 Hobby에 자동 배포되지 않도록 `vercel.json`의 `git.deploymentEnabled`를 `false`로 설정했습니다. 향후 적합한 Vercel 플랜을 사용할 경우 자동 배포를 다시 활성화할 수 있습니다.
 
 Node.js **24.x**를 사용합니다. 루트에서 실행하세요. 이 작업 환경에서는 모든 명령에 `rtk`를 붙입니다.
@@ -56,7 +58,7 @@ Vite 개발 서버는 웹만 실행합니다. `/api/capture`까지 로컬 실행
 
 ## GitHub → Netlify
 
-현재 운영 호스팅은 Netlify입니다. GitHub `nepeel-com/homepage`의 `main`을 연결하고 저장소 루트, 빌드 `npm run build`, 결과물 `dist`, 함수 폴더 `netlify/functions`를 사용합니다. Expo가 자동 감지되더라도 `mobile`을 웹 빌드 루트로 선택하지 마세요. `netlify.toml`이 API 경로와 캐시·보안 헤더를 정의합니다.
+현재 운영 호스팅은 Netlify입니다. GitHub `nepeel-com/homepage`의 `main`을 연결하고 저장소 루트, 결과물 `dist`, 함수 폴더 `netlify/functions`를 사용합니다. 새 `netlify.toml`의 빌드는 `npm run build:attestation && npm run build`로 Android 검증 런타임까지 준비합니다. Expo가 자동 감지되더라도 `mobile`을 웹 빌드 루트로 선택하지 마세요. API 경로와 캐시·보안 헤더도 이 파일에 정의합니다.
 
 웹 공개 변수는 빌드에 포함됩니다. 서버 키 `SUPABASE_SERVICE_ROLE_KEY`는 Production 전용 Secret으로 저장하고 다른 컨텍스트는 비워 둡니다. 현재 이 변수에는 Supabase의 기존 `sb_secret_…` 키를 사용합니다. 운영 사이트는 공개, Deploy Preview는 비공개이며 신뢰하지 않는 배포는 승인이 필요합니다.
 
