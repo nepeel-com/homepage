@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import type { ReactNode } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ArrowUpRight,
   Camera,
@@ -10,8 +11,9 @@ import {
 } from "lucide-react";
 import { Avatar, Dialog, readableError } from "../App";
 import { supabase } from "../lib/supabase";
-import { addComment, getComments, updateProfile } from "../../shared/data";
-import type { Comment, Post, Profile } from "../../shared/types";
+import { updateProfile } from "../../shared/data";
+import { useComments } from "../../shared/useComments";
+import type { Post, Profile } from "../../shared/types";
 import { reportPost, reportReasons } from "../../shared/account";
 
 export { AuthDialog } from "./AuthDialog";
@@ -124,6 +126,7 @@ export function PostDialog({
   close,
   login,
   onComment,
+  client = supabase,
 }: {
   post: Post;
   actions: ReactNode;
@@ -131,28 +134,13 @@ export function PostDialog({
   close: () => void;
   login: () => void;
   onComment: () => void;
+  client?: SupabaseClient | null;
 }) {
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [body, setBody] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const load = useCallback(async () => {
-    if (!supabase || post.sample || !userId) return;
-    setLoading(true);
-    try {
-      setComments(await getComments(supabase, post.id));
-    } catch {
-      setError("댓글을 불러오지 못했어요. 다시 열어 주세요.");
-    } finally {
-      setLoading(false);
-    }
-  }, [post.id, post.sample, userId]);
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const thread = useComments({ client, userId, postId: post.id, enabled: !post.sample, makeId: () => crypto.randomUUID() });
+  const { comments, body, setBody, posting: pending, loading } = thread;
+  const commentsBox = useRef<HTMLDivElement>(null);
   return (
-    <Dialog title={`${post.display_name}의 순간`} close={close} wide>
+    <Dialog title={`${post.display_name}의 순간`} close={() => { if (!pending) close(); }} wide>
       <div className="detail-layout">
         <img
           className="detail-image"
@@ -168,7 +156,8 @@ export function PostDialog({
             </p>
           </div>
           {actions}
-          <div className="comments">
+          {!post.sample && <small className="muted">최신 댓글부터 보여요.</small>}
+          <div className="comments" ref={commentsBox} aria-busy={loading}>
             {loading ? (
               <p className="muted" role="status">
                 댓글을 불러오는 중…
@@ -183,7 +172,7 @@ export function PostDialog({
                   </p>
                 </div>
               ))
-            ) : (
+            ) : !thread.loadError && (
               <p className="muted">
                 {post.sample
                   ? "샘플 사진이에요. 가입하고 진짜 순간에 이야기를 남겨보세요."
@@ -191,28 +180,25 @@ export function PostDialog({
               </p>
             )}
           </div>
-          {error && (
+          {thread.loadError && (
             <p className="form-error" role="alert">
-              {error}
+              댓글을 불러오지 못했어요.{" "}
+              <button className="text-button" type="button" onClick={thread.reload}>다시 시도</button>
             </p>
           )}
+          {thread.moreError && <p className="form-error" role="alert">이전 댓글을 불러오지 못했어요. 다시 시도해 주세요.</p>}
+          {thread.hasMore && <button className="outline-button full" disabled={thread.loadingMore} aria-busy={thread.loadingMore} onClick={() => void thread.loadMore()}>
+            {thread.loadingMore ? "이전 댓글을 불러오는 중…" : "이전 댓글 더 보기"}
+          </button>}
+          {thread.postError && <p className="form-error" role="alert">댓글을 남기지 못했어요. 작성한 내용으로 다시 시도해 주세요.</p>}
           <form
             className="comment-form"
             onSubmit={async (e) => {
               e.preventDefault();
               if (!userId || post.sample) return login();
-              if (pending || !body.trim()) return;
-              setPending(true);
-              setError("");
-              try {
-                await addComment(supabase!, userId, post.id, body);
-                setBody("");
+              if (await thread.submit()) {
                 onComment();
-                await load();
-              } catch {
-                setError("댓글을 남기지 못했어요. 다시 시도해 주세요.");
-              } finally {
-                setPending(false);
+                commentsBox.current?.scrollTo({ top: 0 });
               }
             }}
           >
@@ -222,11 +208,13 @@ export function PostDialog({
               maxLength={500}
               value={body}
               onChange={(e) => setBody(e.target.value)}
+              disabled={pending}
             />
             <button
               className="icon-button"
               aria-label="댓글 게시"
-              disabled={pending || !body.trim()}
+              disabled={pending || loading || !body.trim()}
+              aria-busy={pending}
             >
               <Send size={20} />
             </button>
