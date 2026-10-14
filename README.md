@@ -17,7 +17,7 @@
 - 운영 도메인은 `https://nepeel.com`입니다. Supabase Site URL과 이메일 복귀 허용 주소를 설정했습니다. Expo의 로컬 설정과 EAS production 프로필도 같은 API 주소를 사용합니다.
 - Netlify Production 환경에 서버 URL, 서버 전용 Secret, `APP_ATTEST_ENVIRONMENT=production`, 코드의 iOS/Android 앱 ID를 저장했습니다. **Apple/Google 앱 인증은 아직 설정되지 않았습니다.** 인증 설정이 없으면 사진 게시는 거부됩니다.
 - 이전 Vercel 배포는 `GHkUkCoLTbmLJCAztC2BJ4G2o9pZ`이며 최신 기능의 운영 배포는 Netlify입니다. Vercel Hobby 자동 배포는 비활성화했습니다.
-- GitHub `nepeel-com/homepage`의 `main`에 웹·앱·서버·DB·테스트 소스를 업로드했습니다. Netlify Free의 운영 기능 버전은 Hi 차단 관리를 포함한 `a6c54c9`입니다. 서버 API와 예약 정리 함수도 함께 배포됐고, 운영 사이트는 공개·Deploy Preview는 비공개입니다. 스토어 제출·실기기 촬영 검증은 남아 있습니다.
+- GitHub `nepeel-com/homepage`의 `main`에 웹·앱·서버·DB·테스트 소스를 업로드했습니다. Netlify Free 운영 버전에는 Hi 차단 관리, 인증 화면 개선, 피드 요청 격리, 댓글 페이지네이션·중복 전송 방지가 포함됩니다. 정확한 배포 커밋과 검증 범위는 [검증 기록](docs/VERIFICATION.md)을 참고하세요. 서버 API와 예약 정리 함수도 함께 배포됐고, 운영 사이트는 공개·Deploy Preview는 비공개입니다. 스토어 제출·실기기 촬영 검증은 남아 있습니다.
 - Netlify `nepeel` 프로젝트에 Supabase 서버 키를 Production 전용 Secret으로 저장했습니다. 실제 회원의 인증메일 수신·앱 촬영·계정 삭제 검증은 별도로 필요합니다.
 - 웹·앱 Hi에서 본인이 차단한 회원 목록과 차단 해제를 제공합니다. 상대가 설정한 차단은 유지하며, 양쪽 차단이 없어지면 이전에 수락한 대화만 재개됩니다. 차단 해제는 신고를 취소하거나 만료 시간을 연장하지 않습니다.
 - 웹·앱 공통 인증메일 재전송·비밀번호 복구 요청과 한국어/영어 인증 화면을 추가했습니다. 메일 요청은 60초 대기·중복 클릭 방지 처리를 사용하며, 실제 발송 제한은 Supabase가 적용합니다. 앱에서 요청한 메일도 공식 웹에서 완료한 뒤 앱에 로그인합니다. 41개 자동 테스트와 로컬 Chrome 화면 검증을 통과했습니다. 운영 배포 상태와 실제 메일 수신 검증 범위는 `docs/VERIFICATION.md`를 참고하세요.
@@ -25,6 +25,8 @@
 ## 로컬 실행
 
 무료 글로벌 출시 구조와 현재 제한은 [docs/GLOBAL-LAUNCH.md](docs/GLOBAL-LAUNCH.md)를 참고하세요. Netlify Free에서 웹과 Node 함수를 배포하고 `nepeel.com`의 웹 DNS를 연결했습니다.
+
+Android 로컬 빌드와 테스트 APK의 범위는 [docs/ANDROID-TEST.md](docs/ANDROID-TEST.md)에 기록합니다. 테스트 APK는 Google Play에서 인증된 배포본이 아니며 운영 촬영 검증을 우회하지 않습니다.
 
 GitHub 커밋이 Hobby에 자동 배포되지 않도록 `vercel.json`의 `git.deploymentEnabled`를 `false`로 설정했습니다. 향후 적합한 Vercel 플랜을 사용할 경우 자동 배포를 다시 활성화할 수 있습니다.
 
