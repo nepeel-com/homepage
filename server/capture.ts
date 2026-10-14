@@ -1,20 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { cleanupMedia, deleteAccount } from "./account.js";
-import { capturePayload } from "../shared/types.js";
-import {
-  ApiError,
-  captionField,
-  decodePhoto,
-  textField,
-  uuid,
-} from "../server/validation.js";
-import {
-  androidCaptureProof,
-  iosAssertion,
-  iosRegistration,
-} from "../server/integrity.js";
+import { ApiError, textField, uuid } from "../server/validation.js";
+import { iosRegistration } from "../server/integrity.js";
 import { required } from "./env.js";
+import { publishPhoto } from "./publication.js";
 
 export interface CaptureRequest {
   method?: string;
@@ -39,10 +29,24 @@ export default async function handler(
     const bearer = req.headers.authorization;
     if (!bearer?.startsWith("Bearer "))
       throw new ApiError(401, "로그인이 필요합니다.");
+    const requestDeadline = AbortSignal.timeout(55_000);
     const client = createClient(
       required("SUPABASE_URL"),
       required("SUPABASE_SERVICE_ROLE_KEY"),
-      { auth: { persistSession: false, autoRefreshToken: false } },
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: {
+          fetch: (input, init) =>
+            fetch(input, {
+              ...init,
+              signal: AbortSignal.any([
+                requestDeadline,
+                AbortSignal.timeout(20_000),
+                ...(init?.signal ? [init.signal] : []),
+              ]),
+            }),
+        },
+      },
     );
     const {
       data: { user },
@@ -100,11 +104,12 @@ export default async function handler(
     }
     if (body.action !== "publish" && body.action !== "register")
       throw new ApiError(400, "지원하지 않는 요청입니다.");
+    if (body.action === "publish")
+      return res.status(201).json(await publishPhoto(client, user.id, body));
     const challengeId = uuid(body.challengeId);
-    const purpose = body.action === "register" ? "register" : "capture";
     const { data: attempts, error: attemptError } = await client.rpc(
       "begin_capture_attempt",
-      { p_id: challengeId, p_user: user.id, p_purpose: purpose },
+      { p_id: challengeId, p_user: user.id, p_purpose: "register" },
     );
     const challenge = attempts?.[0];
     if (attemptError || !challenge)
@@ -112,104 +117,22 @@ export default async function handler(
         409,
         "촬영이 만료되었거나 요청 횟수를 초과했습니다. 다시 촬영해 주세요.",
       );
-    if (body.action === "register") {
-      const keyId = textField(body.keyId, 512, "기기 키");
-      const attestation = textField(body.attestation, 30_000, "앱 인증");
-      const verified = iosRegistration(attestation, keyId, challenge.nonce);
-      const { error } = await client.rpc("register_device", {
-        p_id: challengeId,
-        p_user: user.id,
-        p_key: keyId,
-        p_public_key: verified.publicKey,
-        p_environment: verified.environment,
-      });
-      if (error)
-        throw new ApiError(
-          409,
-          "기기 등록이 만료되었습니다. 다시 시도해 주세요.",
-        );
-      return res.status(200).json({ registered: true });
-    }
-    if (body.proof?.platform !== "ios" && body.proof?.platform !== "android")
-      throw new ApiError(403, "공식 nepeel 앱에서 촬영해 주세요.");
-    const caption = captionField(body.caption);
-    const { clean, hash } = await decodePhoto(body.imageBase64);
-    const payload = capturePayload(user.id, challenge, hash, caption);
-    const proof = body.proof;
-    let counter:
-      { p_key: string; p_previous: number; p_next: number } | undefined;
-    if (proof?.platform === "ios") {
-      const keyId = textField(proof.keyId, 512, "기기 키");
-      const assertion = textField(proof.assertion, 10_000, "촬영 인증");
-      const { data: key } = await client
-        .from("device_keys")
-        .select("*")
-        .eq("key_id", keyId)
-        .eq("user_id", user.id)
-        .single();
-      if (!key) throw new ApiError(403, "등록되지 않은 기기입니다.");
-      if (
-        key.environment !== "production" &&
-        process.env.APP_ATTEST_ENVIRONMENT !== "development"
-      )
-        throw new ApiError(403, "테스트용 앱으로는 게시할 수 없습니다.");
-      const verified = iosAssertion(
-        assertion,
-        payload,
-        key.public_key,
-        Number(key.sign_count),
-      );
-      counter = {
-        p_key: keyId,
-        p_previous: Number(key.sign_count),
-        p_next: verified.signCount,
-      };
-    } else if (proof?.platform === "android") {
-      await androidCaptureProof(proof, payload);
-    } else {
-      throw new ApiError(403, "공식 nepeel 앱에서 촬영해 주세요.");
-    }
-    // Atomic nonce consumption and iOS counter compare-and-swap block concurrent replays.
-    const { error: claimError } = await client.rpc("claim_capture", {
+    const keyId = textField(body.keyId, 512, "기기 키");
+    const attestation = textField(body.attestation, 30_000, "앱 인증");
+    const verified = iosRegistration(attestation, keyId, challenge.nonce);
+    const { error } = await client.rpc("register_device", {
       p_id: challengeId,
       p_user: user.id,
-      ...counter,
+      p_key: keyId,
+      p_public_key: verified.publicKey,
+      p_environment: verified.environment,
     });
-    if (claimError)
+    if (error)
       throw new ApiError(
         409,
-        "이미 사용되었거나 만료된 촬영입니다. 다시 촬영해 주세요.",
+        "기기 등록이 만료되었습니다. 다시 시도해 주세요.",
       );
-    const id = randomUUID();
-    const path = `${user.id}/${id}.jpg`;
-    const { error: uploadError } = await client.storage
-      .from("captures")
-      .upload(path, clean, { contentType: "image/jpeg", upsert: false });
-    if (uploadError)
-      throw new ApiError(503, "사진을 저장할 수 없습니다. 다시 촬영해 주세요.");
-    const { error: insertError } = await client.from("posts").insert({
-      id,
-      user_id: user.id,
-      image_path: path,
-      image_sha256: hash,
-      caption,
-      platform: proof.platform,
-      captured_at: challenge.created_at,
-    });
-    if (insertError) {
-      // Also cover an account being deleted while its upload was in flight.
-      const { error: queueError } = await client.from("media_cleanup_jobs").upsert(
-        { user_id: user.id, image_path: path },
-        { onConflict: "image_path", ignoreDuplicates: true },
-      );
-      if (queueError) await client.storage.from("captures").remove([path]);
-      else {
-        try { await cleanupMedia(client, user.id); }
-        catch { console.error("capture_storage_cleanup_queued", id); }
-      }
-      throw new ApiError(503, "사진을 게시할 수 없습니다. 다시 촬영해 주세요.");
-    }
-    return res.status(201).json({ id });
+    return res.status(200).json({ registered: true });
   } catch (error) {
     if (error instanceof ApiError)
       return res.status(error.status).json({ error: error.message });

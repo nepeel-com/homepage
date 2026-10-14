@@ -10,6 +10,7 @@ export async function cleanupMedia(client: SupabaseClient, userId?: string) {
   let query = client
     .from("media_cleanup_jobs")
     .select("id,image_path")
+    .lte("not_before", new Date().toISOString())
     .order("attempted_at", { ascending: true, nullsFirst: true })
     .order("created_at")
     .limit(100);
