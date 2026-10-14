@@ -11,7 +11,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -19,18 +18,18 @@ import {
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { randomUUID } from "expo-crypto";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
 import {
-  addComment,
-  getComments,
   getFeed,
   getProfile,
   setFollowing,
   setReaction,
   updateProfile,
 } from "../shared/data";
-import type { Comment, FeedMode, Post, Profile } from "../shared/types";
+import type { FeedMode, Post, Profile } from "../shared/types";
+import { useComments } from "../shared/useComments";
 import CameraScreen from "./CameraScreen";
 import ConnectionsScreen from "./ConnectionsScreen";
 import AccountModal from "./AccountModal";
@@ -510,17 +509,11 @@ function CommentsModal({
   userId: string;
   close: () => void;
 }) {
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    getComments(supabase!, post.id)
-      .then(setComments)
-      .catch(() => setError("댓글을 불러오지 못했어요."));
-  }, [post.id]);
+  const thread = useComments({ client: supabase, userId, postId: post.id, enabled: true, makeId: randomUUID });
+  const { comments, body, setBody, posting: busy } = thread;
+  const list = useRef<FlatList>(null);
   return (
-    <Modal animationType="slide" onRequestClose={close}>
+    <Modal animationType="slide" onRequestClose={() => { if (!busy) close(); }}>
       <SafeAreaView style={s.safe}>
         <KeyboardAvoidingView
           style={s.flex}
@@ -528,22 +521,23 @@ function CommentsModal({
         >
           <View style={s.header}>
             <Text style={s.title}>이 순간의 이야기</Text>
-            <Pressable style={s.button} onPress={close}>
+            <Pressable style={s.button} disabled={busy} onPress={close}>
               <Text>닫기</Text>
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={s.feed}>
-            {comments.map((c) => (
-              <View style={s.comment} key={c.id}>
-                <Text style={s.bold}>{c.profiles.display_name}</Text>
-                <Text>{c.body}</Text>
-              </View>
-            ))}
-            {!comments.length && (
-              <Text style={s.muted}>첫 번째 이야기를 남겨보세요.</Text>
-            )}
-          </ScrollView>
-          {error ? <Text style={s.error}>{error}</Text> : null}
+          <FlatList
+            ref={list}
+            contentContainerStyle={s.feed}
+            data={comments}
+            keyExtractor={comment => comment.id}
+            renderItem={({ item }) => <View style={s.comment}><Text style={s.bold}>{item.profiles.display_name}</Text><Text>{item.body}</Text></View>}
+            ListHeaderComponent={<View><Text style={s.muted}>최신 댓글부터 보여요.</Text>{thread.loading && <ActivityIndicator accessibilityLabel="댓글을 불러오는 중" />}</View>}
+            ListEmptyComponent={!thread.loading && !thread.loadError ? <Text style={s.muted}>첫 번째 이야기를 남겨보세요.</Text> : null}
+            ListFooterComponent={thread.hasMore ? <Pressable style={s.button} accessibilityRole="button" disabled={thread.loadingMore} onPress={() => void thread.loadMore()}><Text>{thread.loadingMore ? "이전 댓글을 불러오는 중…" : "이전 댓글 더 보기"}</Text></Pressable> : null}
+          />
+          {thread.loadError && <View><Text style={s.error} accessibilityRole="alert">댓글을 불러오지 못했어요.</Text><Pressable style={s.button} onPress={thread.reload}><Text>다시 시도</Text></Pressable></View>}
+          {thread.moreError && <Text style={s.error} accessibilityRole="alert">이전 댓글을 불러오지 못했어요. 다시 시도해 주세요.</Text>}
+          {thread.postError && <Text style={s.error} accessibilityRole="alert">댓글을 게시하지 못했어요. 작성한 내용으로 다시 시도해 주세요.</Text>}
           <View style={s.commentInput}>
             <TextInput
               style={[s.input, s.flex]}
@@ -551,25 +545,20 @@ function CommentsModal({
               onChangeText={setBody}
               maxLength={500}
               placeholder="따뜻한 한마디"
+              accessibilityLabel="댓글"
+              editable={!busy}
             />
             <Pressable
               style={s.button}
-              disabled={busy || !body.trim()}
+              disabled={busy || thread.loading || !body.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="댓글 게시"
+              accessibilityState={{ busy, disabled: busy || thread.loading || !body.trim() }}
               onPress={async () => {
-                if (busy) return;
-                setBusy(true);
-                try {
-                  await addComment(supabase!, userId, post.id, body);
-                  setBody("");
-                  setComments(await getComments(supabase!, post.id));
-                } catch {
-                  setError("댓글을 게시하지 못했어요.");
-                } finally {
-                  setBusy(false);
-                }
+                if (await thread.submit()) list.current?.scrollToOffset({ offset: 0, animated: true });
               }}
             >
-              <Text>게시</Text>
+              <Text>{busy ? "게시 중…" : "게시"}</Text>
             </Pressable>
           </View>
         </KeyboardAvoidingView>
