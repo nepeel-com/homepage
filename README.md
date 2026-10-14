@@ -10,21 +10,21 @@
 - 이 프로젝트에 `202610140001`부터 `202610140004`까지 SQL을 실제 적용했습니다. **같은 프로젝트에 다시 실행하지 마세요.**
 - SNS 테이블 9개와 Hi/DM 테이블 5개, RLS 권한 정책, 비공개 `captures` 버킷이 생성되었습니다.
 - Zoho 사용자 직접 입력 후 Custom SMTP 활성 상태가 새로고침에도 유지됨을 확인했습니다. 실제 가입 메일 수신은 아직 확인하지 않았습니다.
-- Hi 서버 스키마는 운영 DB에 반영됐으며, 웹/앱 새 소스는 검증 완료 후 무료 호스팅 연결을 기다립니다. 기존 Vercel 사이트에는 아직 Hi 화면이 반영되지 않았습니다.
+- Hi 서버 스키마는 운영 DB에 반영됐으며, 최신 웹과 API는 Netlify Free에 공개 배포했습니다. Spaceship에서 `nepeel.com` A를 `75.2.60.5`, `www` CNAME을 `nepeel.netlify.app`으로 변경했습니다. Zoho 메일의 MX·TXT 레코드는 변경 전과 동일합니다. HTTPS 인증서 발급 상태는 `docs/VERIFICATION.md`를 참고하세요.
 - 이메일 인증을 요구하는 회원가입 설정을 유지합니다. 실제 회원 데이터는 로그인 후에만 표시됩니다.
 - 로그인 전에는 출처를 표시한 Unsplash 예시 사진을 보여줍니다. 예시 사진에 인증 표시나 가짜 활동 수치를 붙이지 않습니다.
 - 로컬 `.env.local`, `mobile/.env`에는 공개 URL·키만 들어 있습니다. Git 업로드에서 제외됩니다.
 - 운영 도메인은 `https://nepeel.com`입니다. Supabase Site URL과 이메일 복귀 허용 주소를 설정했습니다. Expo의 로컬 설정과 EAS production 프로필도 같은 API 주소를 사용합니다.
-- Vercel `nepeel-com/homepage`의 Production 환경에 웹 공개 URL·키, 서버 URL, `APP_ATTEST_ENVIRONMENT=production`, 코드의 iOS/Android 앱 ID를 저장했습니다. 앱 ID의 Apple/Google 등록은 별도로 필요합니다.
-- Supabase 서버 전용 키는 Vercel Production의 **Secret** 환경변수에 저장했습니다. **Apple/Google 앱 인증은 아직 설정되지 않았습니다.** 인증 설정이 없으면 사진 게시는 거부됩니다.
-- **Vercel 운영 배포 완료:** `https://nepeel.com`에서 새 SNS 웹을 제공합니다. 서버 키를 반영한 배포 ID는 `GHkUkCoLTbmLJCAztC2BJ4G2o9pZ`, 소스 커밋은 로컬 `57ea3f6`입니다.
-- GitHub `nepeel-com/homepage`의 `main`에 웹·앱·서버·DB·테스트 소스를 업로드했습니다. 원격을 fetch하여 검증한 로컬 소스와 파일 내용을 비교했습니다. 스토어 제출·실기기 촬영 검증과 Netlify 배포는 남아 있습니다.
+- Netlify Production 환경에 서버 URL, 서버 전용 Secret, `APP_ATTEST_ENVIRONMENT=production`, 코드의 iOS/Android 앱 ID를 저장했습니다. **Apple/Google 앱 인증은 아직 설정되지 않았습니다.** 인증 설정이 없으면 사진 게시는 거부됩니다.
+- 이전 Vercel 배포는 `GHkUkCoLTbmLJCAztC2BJ4G2o9pZ`이며 최신 기능의 운영 배포는 Netlify입니다. Vercel Hobby 자동 배포는 비활성화했습니다.
+- GitHub `nepeel-com/homepage`의 `main`에 웹·앱·서버·DB·테스트 소스를 업로드했습니다. Netlify Free에서 커밋 `437f1b4`를 배포했습니다. 서버 API와 예약 정리 함수도 함께 배포됐고, 운영 사이트는 공개·Deploy Preview는 비공개입니다. 스토어 제출·실기기 촬영 검증은 남아 있습니다.
+- Netlify `nepeel` 프로젝트에 Supabase 서버 키를 Production 전용 Secret으로 저장했습니다. 실제 회원의 인증메일 수신·앱 촬영·계정 삭제 검증은 별도로 필요합니다.
 
 ## 로컬 실행
 
-무료 글로벌 출시 구조와 현재 제한은 [docs/GLOBAL-LAUNCH.md](docs/GLOBAL-LAUNCH.md)를 참고하세요. Vercel Hobby는 비상업용입니다. `netlify.toml`과 Node 함수 어댑터를 추가하여 Netlify Free로 이전할 수 있도록 준비했지만 아직 Netlify에 배포하지 않았습니다.
+무료 글로벌 출시 구조와 현재 제한은 [docs/GLOBAL-LAUNCH.md](docs/GLOBAL-LAUNCH.md)를 참고하세요. Netlify Free에서 웹과 Node 함수를 배포하고 `nepeel.com`의 웹 DNS를 연결했습니다.
 
-Netlify 이전 중 GitHub 커밋이 Hobby에 자동 배포되지 않도록 `vercel.json`의 `git.deploymentEnabled`를 `false`로 설정했습니다. 기존 도메인 배포는 그대로 유지됩니다. 향후 적합한 Vercel 플랜을 사용할 경우 자동 배포를 다시 활성화할 수 있습니다.
+GitHub 커밋이 Hobby에 자동 배포되지 않도록 `vercel.json`의 `git.deploymentEnabled`를 `false`로 설정했습니다. 향후 적합한 Vercel 플랜을 사용할 경우 자동 배포를 다시 활성화할 수 있습니다.
 
 Node.js **24.x**를 사용합니다. 루트에서 실행하세요. 이 작업 환경에서는 모든 명령에 `rtk`를 붙입니다.
 
@@ -50,7 +50,13 @@ rtk proxy npm run typecheck:mobile
 
 Vite 개발 서버는 웹만 실행합니다. `/api/capture`까지 로컬 실행하려면 Vercel CLI의 `vercel dev`와 서버 환경 변수가 필요합니다. 실기기 앱에는 도달 가능한 **HTTPS** API 주소를 사용하세요.
 
-## GitHub → Vercel
+## GitHub → Netlify
+
+현재 운영 호스팅은 Netlify입니다. GitHub `nepeel-com/homepage`의 `main`을 연결하고 저장소 루트, 빌드 `npm run build`, 결과물 `dist`, 함수 폴더 `netlify/functions`를 사용합니다. Expo가 자동 감지되더라도 `mobile`을 웹 빌드 루트로 선택하지 마세요. `netlify.toml`이 API 경로와 캐시·보안 헤더를 정의합니다.
+
+웹 공개 변수는 빌드에 포함됩니다. 서버 키 `SUPABASE_SERVICE_ROLE_KEY`는 Production 전용 Secret으로 저장하고 다른 컨텍스트는 비워 둡니다. 현재 이 변수에는 Supabase의 기존 `sb_secret_…` 키를 사용합니다. 운영 사이트는 공개, Deploy Preview는 비공개이며 신뢰하지 않는 배포는 승인이 필요합니다.
+
+## Vercel로 이전하는 경우
 
 저장소 최상단에 `package.json`, `src`, `public`, `shared`, `api`, `server`, `mobile`, `supabase` 폴더를 모두 올리세요. `node_modules`, `.env*`(예시 파일 제외), `.qa`, `dist`는 올리지 않습니다. ZIP은 압축을 풀어 **내용물**을 업로드합니다.
 
@@ -122,7 +128,7 @@ rtk proxy npx expo export --platform all --output-dir ../.qa/mobile-export
 ```text
 Expo 카메라 → 로그인 JWT + 서버 1회용 challenge
            → 사진 SHA-256 + 설명 + 계정 + challenge에 앱 인증 결합
-           → Vercel /api/capture
+           → Netlify /api/capture (Vercel 어댑터도 제공)
            → Apple App Attest / Google Play Integrity 검증
            → challenge 소진 + iOS counter 원자적 갱신
            → EXIF 제거 → 비공개 Supabase Storage → posts 생성
@@ -133,16 +139,16 @@ Expo 카메라 → 로그인 JWT + 서버 1회용 challenge
 
 ## 운영 전 남은 작업
 
-1. 남은 서버 비밀 키와 Apple/Google 인증 설정, GitHub/Vercel 새 소스 배포 상태 확인.
+1. Apple/Google 개발자 계정과 앱 인증 설정, 서명된 앱 빌드 및 운영 도메인 HTTPS 확인.
 2. 실기기에서 iOS/Android 각각 가입 → 촬영 → 게시 → 웹 조회 → 반응 동기화 확인.
 3. 새 Supabase 계정의 기본 메일 전송 제한/SMTP, 봇 가입 방지, 신고 검토 담당과 대응 절차 설정.
 4. 서비스 이용약관·개인정보 처리방침 작성 및 신고 대응 담당 확정. 웹·앱에서 게시물 신고, 본인 게시물 삭제, 비밀번호 재확인을 거치는 회원 탈퇴를 제공합니다. 현재 신고는 `reports`에 저장되며 관리자 알림 전송은 없습니다.
 5. 생성 화면을 다시 찍는 악용, 탈옥/루팅/런타임 변조에 대한 별도 위협 검토. 앱 인증은 장면 자체의 진위를 보증하지 않습니다.
-6. 스토리지 정리: 게시물·계정 삭제 시 트리거가 `media_cleanup_jobs`에 파일 삭제 작업을 기록합니다. API가 즉시 정리하며 실패한 작업은 Netlify의 `cleanup-media` 예약 함수가 매일 03:00 UTC에 최대 500개 재시도합니다. 예약 함수의 실제 배포·실행은 아직 확인하지 않았습니다. 배포 전에는 운영자가 대기열을 점검해야 합니다. 파일 삭제 전 이미 발급된 signed URL은 최대 5분 유효할 수 있습니다.
+6. 스토리지 정리: 게시물·계정 삭제 시 트리거가 `media_cleanup_jobs`에 파일 삭제 작업을 기록합니다. API가 즉시 정리하며 실패한 작업은 Netlify의 `cleanup-media` 예약 함수가 매일 03:00 UTC에 최대 500개 재시도합니다. 함수 배포와 예약 등록은 확인했으며 실제 삭제 실행은 별도 검증이 필요합니다. 운영자는 대기열을 점검해야 합니다. 파일 삭제 전 이미 발급된 signed URL은 최대 5분 유효할 수 있습니다.
 
 ## 새 Supabase 프로젝트에 설치하는 경우에만
 
-`supabase/migrations`의 SQL 두 파일을 파일명 순서대로 SQL Editor에서 한 번 실행합니다. Supabase CLI로 설치할 수도 있습니다. 이미 이 프로젝트에 SQL Editor로 적용한 마이그레이션을 CLI로 관리하려면 원격 스키마와 파일을 먼저 확인한 후 migration history를 `applied`로 맞추세요. 초기화 SQL을 다시 실행하면 중복 객체 오류가 발생합니다.
+`supabase/migrations`의 SQL 네 파일을 파일명 순서대로 SQL Editor에서 한 번 실행합니다. Supabase CLI로 설치할 수도 있습니다. 이미 이 프로젝트에 SQL Editor로 적용한 마이그레이션을 CLI로 관리하려면 원격 스키마와 파일을 먼저 확인한 후 migration history를 `applied`로 맞추세요. 초기화 SQL을 다시 실행하면 중복 객체 오류가 발생합니다.
 
 ## 검증과 범위
 
