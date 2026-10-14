@@ -7,7 +7,7 @@
 ## 현재 연결 상태
 
 - Supabase 프로젝트 `bvigbszjuviqjklrrqyb`: 제공받은 공개 키로 연결했습니다.
-- 이 프로젝트에 `202610140001`부터 `202610140007`까지 SQL을 실제 적용했습니다. **같은 프로젝트에 다시 실행하지 마세요.**
+- 이 프로젝트에 `202610140001`부터 `202610140008`까지 SQL을 실제 적용했습니다. **같은 프로젝트에 다시 실행하지 마세요.**
 - SNS 테이블 9개와 Hi/DM 테이블 5개, RLS 권한 정책, 비공개 `captures` 버킷이 생성되었습니다.
 - Zoho 사용자 직접 입력 후 Custom SMTP 활성 상태가 새로고침에도 유지됨을 확인했습니다. 실제 가입 메일 수신은 아직 확인하지 않았습니다.
 - Hi 서버 스키마는 운영 DB에 반영됐으며, 최신 웹과 API는 Netlify Free에 공개 배포했습니다. Spaceship에서 `nepeel.com` A를 `75.2.60.5`, `www` CNAME을 `nepeel.netlify.app`으로 변경했습니다. Zoho 메일의 MX·TXT 레코드는 변경 전과 동일합니다. HTTPS 인증서 발급 상태는 `docs/VERIFICATION.md`를 참고하세요.
@@ -160,7 +160,7 @@ Expo 카메라 → 로그인 JWT + 서버 1회용 challenge
 
 ## 새 Supabase 프로젝트에 설치하는 경우에만
 
-`supabase/migrations`의 SQL 일곱 파일을 파일명 순서대로 SQL Editor에서 한 번 실행합니다. Supabase CLI로 설치할 수도 있습니다. 이미 이 프로젝트에 SQL Editor로 적용한 마이그레이션을 CLI로 관리하려면 원격 스키마와 파일을 먼저 확인한 후 migration history를 `applied`로 맞추세요. 초기화 SQL을 다시 실행하면 중복 객체 오류가 발생합니다.
+`supabase/migrations`의 SQL 여덟 파일을 파일명 순서대로 SQL Editor에서 한 번 실행합니다. Supabase CLI로 설치할 수도 있습니다. 이미 이 프로젝트에 SQL Editor로 적용한 마이그레이션을 CLI로 관리하려면 원격 스키마와 파일을 먼저 확인한 후 migration history를 `applied`로 맞추세요. 초기화 SQL을 다시 실행하면 중복 객체 오류가 발생합니다.
 
 ## 검증과 범위
 
