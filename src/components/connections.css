@@ -315,6 +315,11 @@
   flex-direction: column;
   gap: 18px;
 }
+.hi-blocks { list-style: none; padding: 0; margin: 0; }
+.hi-blocks li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.hi-blocks li > span { flex: 1; min-width: 120px; overflow-wrap: anywhere; }
+.hi-blocks small { display: block; color: var(--muted); margin-top: 4px; }
+.hi-inbox-heading { flex-wrap: wrap; }
 .hi-settings > p {
   font-size: 14px;
   line-height: 1.8;

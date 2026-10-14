@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ArrowUpRight,
   Check,
@@ -19,6 +20,7 @@ import {
   savePreferences,
   type ConnectionPreferences,
   type Gender,
+  type BlockedConnection,
 } from "../../shared/connect";
 import { useConnections } from "../../shared/useConnections";
 import { Avatar, Dialog } from "../App";
@@ -27,9 +29,11 @@ import "./connections.css";
 export default function Connections({
   userId,
   login,
+  client = supabase,
 }: {
   userId?: string;
   login: () => void;
+  client?: SupabaseClient | null;
 }) {
   const [en, setEn] = useState(
     () => localStorage.getItem("nepeel.hi.language") === "en",
@@ -41,7 +45,7 @@ export default function Connections({
     document.addEventListener("visibilitychange", change);
     return () => document.removeEventListener("visibilitychange", change);
   }, []);
-  const h = useConnections(supabase, userId, active);
+  const h = useConnections(client, userId, active);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ConnectionPreferences>({
     ...defaultPreferences,
@@ -51,6 +55,7 @@ export default function Connections({
   const [body, setBody] = useState("");
   const [reporting, setReporting] = useState(false);
   const [reason, setReason] = useState("other");
+  const [unblocking, setUnblocking] = useState<BlockedConnection | null>(null);
   const pendingMessage = useRef<{
     body: string;
     connection: string;
@@ -230,6 +235,9 @@ export default function Connections({
           )}
           <div className="hi-inbox-heading">
             <h2>{t("나의 Hi", "Your hellos")}</h2>
+            <button className="text-button" disabled={h.busy} onClick={() => {
+              setUnblocking(null); setNotice(""); h.setBlocksOpen(true);
+            }}>{t("Hi 차단 관리", "Manage Hi blocks")}</button>
             <span>
               {h.liveState
                 ? t("실시간 연결됨", "Live updates")
@@ -453,7 +461,7 @@ export default function Connections({
                       </button>
                     </form>
                   )}
-                  {conversation.status !== "blocked" && (
+                  {(
                     <button
                       className="text-button hi-safety"
                       onClick={() => setReporting(true)}
@@ -494,7 +502,7 @@ export default function Connections({
             onSubmit={(e) => {
               e.preventDefault();
               void h.run(async () => {
-                await savePreferences(supabase!, draft);
+                await savePreferences(client!, draft);
                 h.setPrefs(draft);
                 setEditing(false);
                 setNotice(
@@ -714,8 +722,8 @@ export default function Connections({
           <div className="hi-settings">
             <p>
               {t(
-                "차단하면 서로 메시지를 보낼 수 없고 다시 연결되지 않아요. 기존 메시지는 운영 검토를 위해 보관됩니다.",
-                "Blocking stops messages and future matching. Existing messages are retained for moderation.",
+                "차단 중에는 서로 메시지를 보낼 수 없어요. Hi 차단 관리에서 내 차단을 해제할 수 있으며, 기존 메시지는 보관됩니다.",
+                "Messages stop while blocked. You can remove your block in Manage Hi blocks. Existing messages are retained.",
               )}
             </p>
             <label>
@@ -763,6 +771,37 @@ export default function Connections({
                 {t("차단만", "Block only")}
               </button>
             </div>
+          </div>
+        </Dialog>
+      )}
+      {userId && h.blocksOpen && (
+        <Dialog title={t("내가 차단한 Hi 회원", "People you've blocked on Hi")}
+          close={() => { if (!h.busy) { h.setBlocksOpen(false); setUnblocking(null); } }}>
+          <div className="hi-settings">
+            <p>{t("내가 설정한 차단만 표시합니다. 상대가 설정한 차단은 해제할 수 없어요.", "Only your blocks appear here. You cannot remove another person's block.")}</p>
+            {unblocking ? <>
+              <h3>{unblocking.display_name} {t("님의 차단을 해제할까요?", "— unblock?")}</h3>
+              <p>{t("양쪽의 차단이 모두 해제되면, 이전에 수락한 대화와 메시지를 다시 볼 수 있어요. 수락하지 않은 요청은 원래 만료 시간이 유지되며, 신고는 취소되지 않아요.", "Once neither person is blocking, previously accepted chats and messages reopen. Unaccepted requests keep their original expiry. Reports remain submitted.")}</p>
+              <div className="hi-row">
+                <button className="outline-button" disabled={h.busy} onClick={() => setUnblocking(null)}>{t("취소", "Cancel")}</button>
+                <button className="dark-button" disabled={h.busy} onClick={() => void h.run(async () => {
+                  await h.act("unblock_connection", { p_connection: unblocking.connection_id });
+                  setUnblocking(null);
+                  setNotice(t("내 차단을 해제했어요. 상대가 차단한 경우 대화는 계속 닫혀 있습니다.", "Your block was removed. A block set by the other person still keeps the chat closed."));
+                })}>{h.busy ? t("해제 중…", "Unblocking…") : t("차단 해제", "Unblock")}</button>
+              </div>
+            </> : <>
+              <button className="outline-button" disabled={h.busy || h.blocksLoading} onClick={() => void h.run(h.refreshBlocks)}>{t("목록 새로고침", "Refresh list")}</button>
+              {h.blocksLoading ? <p role="status">{t("차단 목록을 불러오는 중…", "Loading your blocks…")}</p>
+                : !h.blocks.length ? <p>{t("내가 차단한 Hi 회원이 없어요.", "You haven't blocked anyone on Hi.")}</p>
+                : <ul className="hi-blocks">{h.blocks.map(item => <li key={item.peer_id}>
+                  <span><b>{item.display_name}</b><small>@{item.username}</small></span>
+                  <button className="outline-button" disabled={h.busy} aria-label={`${item.display_name} · ${t("차단 해제", "Unblock")}`} onClick={() => { setNotice(""); setUnblocking(item); }}>{t("차단 해제", "Unblock")}</button>
+                </li>)}</ul>}
+              {h.blocksMore && !h.blocksLoading && <button className="outline-button" disabled={h.busy} onClick={() => void h.run(h.loadMoreBlocks)}>{t("더 보기", "Load more")}</button>}
+            </>}
+            {notice && <p className="hi-notice" role="status">{notice}</p>}
+            {h.error != null && <p className="hi-error" role="alert">{connectError(h.error, en)}</p>}
           </div>
         </Dialog>
       )}
